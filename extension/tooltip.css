@@ -1,0 +1,42 @@
+.tooltip {
+  color: #CF5300;
+  text-decoration: none;
+  transition-duration: 0.3s;
+}
+
+.tooltip:hover {
+  color: #999;
+  position: relative;
+  text-decoration: none;
+  transition-duration: 0s;
+}
+
+/* Tooltip on Top */
+.tooltip-top[data-tooltip-top]:hover:after {
+  content: attr(data-tooltip-top);
+  padding-left: 4px;
+  padding-right: 4px;
+  margin: 0px;
+  position: absolute;
+  bottom: calc(100% + 38px);
+  left: 2px;
+  white-space: nowrap;
+  background-color: #000;
+  color: #fff;
+  transition:opacity 0.5s linear;
+  opacity: 100%;
+}
+
+/* Tooltip on Bottom */
+.tooltip-bottom[data-tooltip-bottom]:hover:after {
+  content: attr(data-tooltip-bottom);
+  padding-left: 4px;
+  padding-right: 4px;
+  margin: 0px;
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 2px;
+  white-space: nowrap;
+  background-color: #EEE;
+  color: #000;
+}

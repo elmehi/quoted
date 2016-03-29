@@ -1,3 +1,5 @@
+
+
 //var temptext = document.body.innerHTML.replace(new RegExp(" the ", "g"), " apples ");
 //var notags = document.body.innerHTML.split(new RegExp("<[^>]+>", "g"));
 //
@@ -10,44 +12,64 @@
 //window.alert(curlyq[i]);
 //}
 
-var html = document.body.innerHTML;
-var idx = html.length;
+var minimum_length = 4;
+var str = document.body.innerHTML;
 var nest_level = 0
 var in_quote = false
 var quotes = [];
 var current_quote = ""
-for (var idx = 0; idx < html.length; idx++) {
-    if (html[idx] == '“') {
-        in_quote = true;
-    } else if (html[idx] == '”') {
-        in_quote = false
-        if (nest_level == 0) {
-            quotes.push(current_quote + "\"");
-            current_quote = "";
-        }
+var injected_start = false, injected_end = false;
+var start_tag = "<a style=\"text-decoration: none;\" href=\"http://www.nytimes.com/\"><span class=\"tooltip tooltip-top\" data-tooltip-top=\"New York Times\"><span class=\"tooltip tooltip-bottom\" data-tooltip-bottom=\"June 15, 2015\">";
+var end_tag = "</span></span></a>";
+for (var idx = 0; idx < str.length; idx++) {
+    if (injected_start) {
+        injected_start = false;
+        idx += start_tag.length;
     }
     
-        
-    if (nest_level == 0) {
-        if (in_quote) {
-            if (html[idx] != '“') {
-                current_quote += html[idx];
-            } else {
-                current_quote += '\"';
+    if (injected_end) {
+        injected_end = false;
+        idx += end_tag.length;
+    }
+    
+    if (str[idx] == '“') {
+        in_quote = true;
+         if (nest_level == 0) {
+            str = str.substr(0, idx + 1) + start_tag + str.substr(idx + 1);
+            injected_start = true;
+         }
+    } else if (str[idx] == '”') {
+        in_quote = false
+         if (nest_level == 0) {
+            str = str.substr(0, idx) + end_tag + str.substr(idx);
+            injected_end = true;
+            if (current_quote.split(' ').length >= minimum_length) {
+                quotes.push(current_quote + "\"");
             }
-        } else {
-            
-        }
+            current_quote = "";
+         }
+    }
+    
+    if (in_quote) {
+        if (str[idx] != '“') 
+            current_quote += str[idx];
     }
     
     if (!in_quote) {
-        if (html[idx] === '<') {
-            nest_level++;
-        } else if (html[idx] === '>') {
+        if (str[idx] === '<') {
+            // If we've just injected the end tag, we'll see the opening bracket
+            //  of the tag before the closing quote, so we need to ignore it
+            if (!injected_end) {
+                nest_level++;
+            }
+        }
+        else if (str[idx] === '>') {
             nest_level--;
         }
     }
 }
+
+document.body.innerHTML = str;
 
 var s = ""
 for (q in quotes) {
@@ -57,7 +79,7 @@ for (q in quotes) {
     s += '\n';
 }
 
-alert(s);
+// alert(s);
 
 // var match, location, beg, end;
 // var lastClosedTag = 0;
