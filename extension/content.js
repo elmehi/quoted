@@ -16,33 +16,60 @@ var start_tag = '<a style="text-decoration: none;" href="http://www.nytimes.com/
                 '<span class="tooltip tooltip-bottom" data-tooltip-bottom="&quot;Trump Wins the Presidency&quot;">';
 var end_tag = '</span></span></span></a>';
 
+// http://stackoverflow.com/questions/247483/http-get-request-in-javascript
+
+function retrieveQuote(quote) {
+    // TODO
+    url = 'http://www.google.com/'; // TODO
+    // TODO
+    
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.onreadystatechange = function() { 
+        if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+            responseReceived(xmlHttp.responseText, quote);
+    }
+    xmlHttp.open("GET", url, true); // true for asynchronous 
+    xmlHttp.send(null);
+}
+
+function responseReceived(text, quote) {
+    console.log("Response for quote (" + quote + "): " + text);
+}
+
 // http://stackoverflow.com/questions/25742862/find-and-replace-text-inside-quotes-ignoring-html-tags
-$("p").contents().filter(function (i, el) {
-   return el.nodeType === 3;
-}).each(function (i, el) {
-    var replaced = $(el).text().replace(/"([^"]* [^"]* [^"]* [^"]*?)"/g, start_tag + '"$1"' + end_tag);
-    if ($(el).text() !== replaced) {
-        $(el).replaceWith(replaced);
+// var p = $("p").contents().filter(function (i, el) {
+//    return el.nodeType === 3;
+// })
+
+// var news = $("html").html()
+//             .replace(/(["\u201C])([^"\u201D]+)(["\u201D])(.*)/g, start_tag + '$1$2$3' + end_tag + '$4');
+// $(news).replaceWith(news);
+
+$("p").each(function (i, el) {
+    if ($(el).text().length) {
+        var replaced = $(el).text()
+            .replace(/(["\u201C])([^"\u201D]+)(["\u201D])(.*)/g, start_tag + '$1$2$3' + end_tag + '$4');
+            
+        if ($(el).text() !== replaced) {
+            $(el).replaceWith(replaced);
+        } 
     }
+    // retrieveQuote('');
 })
 
-$("p").contents().filter(function (i, el) {
-   return el.nodeType === 3;
-}).each(function (i, el) {
-    var replaced = $(el).text().replace(/\u201C([^\u201D]* [^\u201D]* [^\u201D]* [^\u201D]*?)\u201D/g, start_tag + '\u201C$1\u201D' + end_tag);
-    if ($(el).text() !== replaced) {
-        $(el).replaceWith(replaced);
-    }
-})
-
-$("p").contents().filter(function (i, el) {
-   return el.nodeType === 3;
-}).each(function (i, el) {
-    var replaced = $(el).text().replace(/"([^\u201D]* [^\u201D]* [^\u201D]* [^\u201D]*?)\u201D/g, start_tag + '"$1\u201D' + end_tag);
-    if ($(el).text() !== replaced) {
-        $(el).replaceWith(replaced);
-    }
-})
+// p.each(function (i, el) {
+//     var replaced = $(el).text().replace(/\u201C([^\u201D]* [^\u201D]* [^\u201D]* [^\u201D]*?)\u201D/g, start_tag + '\u201C$1\u201D' + end_tag);
+//     if ($(el).text() !== replaced) {
+//         $(el).replaceWith(replaced);
+//     }
+// })
+// 
+// p.each(function (i, el) {
+//     var replaced = $(el).text().replace(/"([^\u201D]* [^\u201D]* [^\u201D]* [^\u201D]*?)\u201D/g, start_tag + '"$1\u201D' + end_tag);
+//     if ($(el).text() !== replaced) {
+//         $(el).replaceWith(replaced);
+//     }
+// })
 
 $("div").contents().filter(function (i, el) {
    return el.nodeType === 3;
