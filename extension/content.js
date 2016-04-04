@@ -10,10 +10,10 @@
 //window.alert(curlyq[i]);
 //}
 
-var start_tag = '<a style="text-decoration: none;" href="http://www.nytimes.com/">' +
-                '<span class="tooltip tooltip-top" data-tooltip-top="June 15, 2015">' + 
-                '<span class="tooltip tooltip-middle" data-tooltip-middle="The New York Times">' +
-                '<span class="tooltip tooltip-bottom" data-tooltip-bottom="&quot;Trump Wins the Presidency&quot;">';
+var start_tag = '<a style="text-decoration: none;" href="__URL__">' +
+'<span class="tooltip tooltip-top" data-tooltip-top="__SOURCE__">' + 
+'<span class="tooltip tooltip-middle" data-tooltip-middle="__DATE__">' +
+'<span class="tooltip tooltip-bottom" data-tooltip-bottom="&quot;__ARTICLE_TITLE__&quot;">';
 var end_tag = '</span></span></span></a>';
 
 // http://stackoverflow.com/questions/247483/http-get-request-in-javascript
@@ -26,7 +26,7 @@ function retrieveQuote(quote) {
     var xmlHttp = new XMLHttpRequest();
     xmlHttp.onreadystatechange = function() { 
         if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
-            responseReceived(xmlHttp.responseText, quote);
+        responseReceived(xmlHttp.responseText, quote);
     }
     xmlHttp.open("GET", url, true); // true for asynchronous 
     xmlHttp.send(null);
@@ -45,61 +45,177 @@ function responseReceived(text, quote) {
 //             .replace(/(["\u201C])([^"\u201D]+)(["\u201D])(.*)/g, start_tag + '$1$2$3' + end_tag + '$4');
 // $(news).replaceWith(news);
 
-$("p").each(function (i, el) {
-    if ($(el).text().length) {
-        var replaced = $(el).text()
-            .replace(/(["\u201C])([^"\u201D]+)(["\u201D])(.*)/g, start_tag + '$1$2$3' + end_tag + '$4');
-            
-        if ($(el).text() !== replaced) {
-            $(el).replaceWith(replaced);
-        } 
+var quote_dict;
+var quotes = [];
+$("p").contents().filter(function (i, el) {
+    return el.nodeType === 3; // THIS MEANS THE CONTENTS ARE TEXT
+}).each(function (i, el) {
+    var matches = $(el).text().match(/(["\u201C])([^"\u201D]+)(["\u201D])/g);
+    if (matches != null) {
+        for (var idx in matches) {
+            if (matches[idx].length > 0) {
+                quotes.push(matches[idx]); 
+            }
+        }
     }
-    // retrieveQuote('');
 })
 
-// p.each(function (i, el) {
-//     var replaced = $(el).text().replace(/\u201C([^\u201D]* [^\u201D]* [^\u201D]* [^\u201D]*?)\u201D/g, start_tag + '\u201C$1\u201D' + end_tag);
-//     if ($(el).text() !== replaced) {
-//         $(el).replaceWith(replaced);
+$("div").contents().filter(function (i, el) {
+    return el.nodeType === 3; // THIS MEANS THE CONTENTS ARE TEXT
+}).each(function (i, el) {
+    var matches = $(el).text().match(/(["\u201C])([^"\u201D]+)(["\u201D])/g);
+    if (matches != null) {
+        for (var idx in matches) {
+            if (matches[idx].length > 0) {
+                quotes.push(matches[idx]); 
+            }
+        }
+    }
+})
+
+function reload(response) {
+    // console.log(quote);
+    // console.log(response);
+    var quote = response['quote'];
+    
+    $("p").contents().filter(function (i, el) {
+       return el.nodeType === 3; // THIS MEANS THE CONTENTS ARE TEXT
+    }).each(function (i, el) {
+        if ($(el).text().length) {
+            var start_tag_populated = start_tag;
+            start_tag_populated = start_tag_populated.replace('__URL__', response['url']);
+            start_tag_populated = start_tag_populated.replace('__DATE__', response['date']);
+            start_tag_populated = start_tag_populated.replace('__SOURCE__', response['source']);
+            start_tag_populated = start_tag_populated.replace('__ARTICLE_TITLE__', response['article_title']);
+            
+            var replaced = $(el).text().replace(quote, start_tag_populated + quote + end_tag);
+            if ($(el).text() !== replaced) {
+                $(el).replaceWith(replaced);
+            } 
+        }
+    })
+
+    $("div").contents().filter(function (i, el) {
+       return el.nodeType === 3; // THIS MEANS THE CONTENTS ARE TEXT
+    }).each(function (i, el) {
+        if ($(el).text().length) {
+            var replaced = $(el).text().replace(quote, start_tag + quote + end_tag);
+                
+            if ($(el).text() !== replaced) {
+                $(el).replaceWith(replaced);
+            } 
+        }
+    })
+}
+
+// console.log(quotes);
+// for (var idx in quotes) {
+//     var quote = quotes[idx];
+//     var xhr = new XMLHttpRequest();
+//     var URL = "https://quotedserver.herokuapp.com/lookup/change+the+meaning+of+a+picture+by+framing+it+differently,/results/";
+//     // var escaped = quote.replace(/ /g, '+');
+//     // escaped = escaped.substring(1, escaped.length - 1);
+//     xhr.open("GET", "https://google.com/", true);
+//     console.log(URL);
+//     xhr.onreadystatechange = function () {
+//         console.log(xhr.readyState);
+//         console.log(xhr.responseText);
+//         var response = '{' +
+//                         '"url": "http://www.theatlantic.com/entertainment/archive/2016/03/directors-without-borders/475122/", ' +
+//                         '"article_title": "Directors Without Borders", ' + 
+//                         '"source": "The Atlantic", ' +
+//                         '"date": "January 16, 2016 1:30 EST"' + 
+//                         '}';
+//         reload(quote, JSON.parse(response));
+//         
+//         // if (xhr.readyState === 4) {
+//         //     if (xhr.status === 200) {
+//         //         console.log(xhr.responseText);
+//         //     } else {
+//         //         console.error(xhr.statusText);
+//         //     }
+//         // }
+//     };
+//     xhr.onerror = function (e) {
+//         console.error(xhr.statusText);
+//     };
+//     xhr.send(null);
+// }
+
+// function domainFromURL(url) {
+//     var domain;
+//     if (url.indexOf('://') == -1) {
+//         domain = url.split('/')[0];
+//     } else {
+//         domain = url.split('/')[2];
+//     }
+//     
+//     return domain;
+// }
+// 
+// // console.log(quotes);
+for (var idx in quotes) {
+    var quote = quotes[idx];
+    var xhr = new XMLHttpRequest();
+    var URL = "https://quotedserver.herokuapp.com/lookup/__/results/";
+    var escaped = quote.replace(/ /g, '+');
+    escaped = escaped.substring(1, escaped.length - 1);
+    URL = URL.replace('__', escaped);
+    console.log(URL);
+    xhr.onreadystatechange = function (e) {
+        // var response = '{' +
+        //                 '"url": "http://www.theatlantic.com/entertainment/archive/2016/03/directors-without-borders/475122/", ' +
+        //                 '"article_title": "Directors Without Borders", ' + 
+        //                 '"source": "The Atlantic", ' +
+        //                 '"date": "January 16, 2016 1:30 EST"' + 
+        //                 '}';
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log(xhr.responseText);
+                var JSON_object = JSON.parse(xhr.responseText);
+                JSON_object['date'] = xhr.getResponseHeader('Last-Modified');
+                JSON_object['source'] = domainFromURL(JSON_object['url']);
+                reload(JSON_object);
+            } else {
+                console.error(xhr.statusText);
+            }
+        }
+    };
+    xhr.onerror = function (e) {
+        console.error(xhr.statusText);
+    };
+    xhr.open("GET", URL, true);
+    xhr.send(null);
+    break;
+}
+
+// console.log(quotes);
+
+// $("p").contents().filter(function (i, el) {
+//    return el.nodeType === 3; // THIS MEANS THE CONTENTS ARE TEXT
+// }).each(function (i, el) {
+//     if ($(el).text().length) {
+//         var replaced = $(el).text()
+//             .replace(/(["\u201C])([^"\u201D]+)(["\u201D])(.*)/g, start_tag + '$1$2$3' + end_tag + '$4');
+//             
+//         if ($(el).text() !== replaced) {
+//             $(el).replaceWith(replaced);
+//         } 
 //     }
 // })
 // 
-// p.each(function (i, el) {
-//     var replaced = $(el).text().replace(/"([^\u201D]* [^\u201D]* [^\u201D]* [^\u201D]*?)\u201D/g, start_tag + '"$1\u201D' + end_tag);
-//     if ($(el).text() !== replaced) {
-//         $(el).replaceWith(replaced);
+// $("div").contents().filter(function (i, el) {
+//    return el.nodeType === 3; // THIS MEANS THE CONTENTS ARE TEXT
+// }).each(function (i, el) {
+//     if ($(el).text().length) {
+//         var replaced = $(el).text()
+//             .replace(/(["\u201C])([^"\u201D]+)(["\u201D])(.*)/g, start_tag + '$1$2$3' + end_tag + '$4');
+//             
+//         if ($(el).text() !== replaced) {
+//             $(el).replaceWith(replaced);
+//         } 
 //     }
 // })
-
-$("div").contents().filter(function (i, el) {
-   return el.nodeType === 3;
-}).each(function (i, el) {
-   var replaced = $(el).text().replace(/\u201C([^\u201D]* [^\u201D]* [^\u201D]* [^\u201D]*?)\u201D/g, start_tag + '\u201C$1\u201D' + end_tag);
-   if ($(el).text() !== replaced) {
-       $(el).replaceWith(replaced);
-   }
-})
-
-$("div").contents().filter(function (i, el) {
-   return el.nodeType === 3;
-}).each(function (i, el) {
-    var replaced = $(el).text().replace(/"([^"]* [^"]* [^"]* [^"]*?)"/g, start_tag + '"$1"' + end_tag);
-    if ($(el).text() !== replaced) {
-        $(el).replaceWith(replaced);
-    }
-})
-
-$("div").contents().filter(function (i, el) {
-   return el.nodeType === 3;
-}).each(function (i, el) {
-    var replaced = $(el).text().replace(/"([^\u201D]* [^\u201D]* [^\u201D]* [^\u201D]*?)\u201D/g, start_tag + '"$1\u201D' + end_tag);
-    if ($(el).text() !== replaced) {
-        $(el).replaceWith(replaced);
-    }
-})
-
-// console.log($("p"));
-
 
 // var minimum_length = 4;
 // var str = document.body.innerHTML;

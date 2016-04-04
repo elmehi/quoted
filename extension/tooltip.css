@@ -18,7 +18,7 @@
   padding-right: 4px;
   margin: 0px;
   position: absolute;
-  height: 20px;
+  height: 22px;
   left: 2px;
   bottom: 100%;
   white-space: nowrap;
@@ -26,13 +26,14 @@
   color: #fff;
   opacity: 0.0;
   transition: all .4s;
-  /*font-size: 12px;*/
+  font-size: 16px;
+  font-style: italic;
 }
 
 /* Tooltip on Top */
 .tooltip-top[data-tooltip-top]:hover:after {
   opacity: 1.0;
-  bottom: calc(100% + 55px);
+  bottom: calc(100% + 53px);
 }
 
 /* Tooltip in Middle */
@@ -42,7 +43,7 @@
   padding-right: 4px;
   margin: 0px;
   position: absolute;
-  height: 22px;
+  height: 20px;
   left: 2px;
   bottom: 100%;
   white-space: nowrap;
@@ -50,8 +51,7 @@
   color: #fff;
   opacity: 0.0;
   transition: all .3s;
-  font-size: 16px;
-  font-style: italic;
+  font-size: 12px;
 }
 
 /* Tooltip in Middle */
