@@ -1,10 +1,10 @@
-.tooltip {
+.quote {
   color: #CF5300;
   text-decoration: none;
   transition-duration: 0.2s;
 }
 
-.tooltip:hover {
+.quote:hover {
   color: #999;
   position: relative;
   text-decoration: none;
@@ -12,8 +12,8 @@
 }
 
 /* Tooltip on Top */
-.tooltip-top[data-tooltip-top]:after {
-  content: attr(data-tooltip-top);
+.tooltip_top[data_tooltip_top]:after {
+  content: attr(data_tooltip_top);
   padding-left: 4px;
   padding-right: 4px;
   margin: 0px;
@@ -25,20 +25,22 @@
   background-color: #000;
   color: #fff;
   opacity: 0.0;
-  transition: all .4s;
+  transition: all .3s;
   font-size: 16px;
   font-style: italic;
 }
 
 /* Tooltip on Top */
-.tooltip-top[data-tooltip-top]:hover:after {
+.tooltip_top[data_tooltip_top]:hover:after {
   opacity: 1.0;
   bottom: calc(100% + 53px);
 }
 
 /* Tooltip in Middle */
-.tooltip-middle[data-tooltip-middle]:after {
-  content: attr(data-tooltip-middle);
+.tooltip_middle[data_tooltip_middle]:after {
+    position: relative;
+    display: inline-block;
+  content: attr(data_tooltip_middle);
   padding-left: 4px;
   padding-right: 4px;
   margin: 0px;
@@ -50,19 +52,19 @@
   background-color: #000;
   color: #fff;
   opacity: 0.0;
-  transition: all .3s;
+  transition: all .25s;
   font-size: 12px;
 }
 
 /* Tooltip in Middle */
-.tooltip-middle[data-tooltip-middle]:hover:after {
+.tooltip_middle[data_tooltip_middle]:hover:after {
   opacity: 1.0;
   bottom: calc(100% + 31px);
 }
 
 /* Tooltip on Bottom */
-.tooltip-bottom[data-tooltip-bottom]:after {
-  content: attr(data-tooltip-bottom);
+.tooltip_bottom[data_tooltip_bottom]:after {
+  content: attr(data_tooltip_bottom);
   padding-left: 4px;
   padding-right: 4px;
   margin: 0px;
@@ -78,7 +80,7 @@
   font-size: 17px;
 }
 
-.tooltip-bottom[data-tooltip-bottom]:hover:after {
+.tooltip_bottom[data_tooltip_bottom]:hover:after {
   opacity: 1.0;
   bottom: calc(100% + 4px);
 }
