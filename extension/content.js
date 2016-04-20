@@ -1,31 +1,122 @@
-var load_tag = '<a id="ID" class="quote">' +
-                '<span class="tooltip tooltip_bottom" data_tooltip_bottom="Loading article...">';
-var load_tag_end = '</span></a>'
-var start_tag = '<span class="tooltip tooltip_top" data_tooltip_top="__SOURCE__">' + 
-                '<span class="tooltip tooltip_middle" data_tooltip_middle="__DATE__">' +
-                '<span class="tooltip tooltip_bottom" data_tooltip_bottom="&quot;__ARTICLE_TITLE__&quot;">';
-var end_tag = '</span></span></span></a>';
+/*******************************************************************************
+*
+* SETTINGS
+*
+*******************************************************************************/
+var CLOBBER_LINKS = true;
+var INCLUDE_TITLES = true;
+/******************************************************************************/
 
-var id = 0;
-var quote_ids = {}
-$("p").contents().filter(function (i, el) {
-    return el.nodeType === 3; // THIS MEANS THE CONTENTS ARE TEXT
-}).each(function (i, el) {
-    var replaced = $(el).text().replace(/(["\u201C])([^"\u201D]+)(["\u201D])/g, function($0, $1, $2, $3) {
-        var id_to_use;
-        if ($2 in quote_ids) {
-            id_to_use = quote_ids[$2];
+
+// #############################################################################
+// TAG TO USE AS A PLACEHOLDER UNTIL A QUOTE'S INFORMATION HAS BEEN LOADED
+// #############################################################################
+var LOAD_TAG = '<a id="ID" class="quote">' +
+'<span class="tooltip tooltip_bottom" data_tooltip_bottom="Loading article...">';
+var LOAD_TAG_END = '</span></a>'
+// #############################################################################
+
+// #############################################################################
+// TAG TO USE ONCE A QUOTE'S INFORMATION HAS BEEN LOADED
+// #############################################################################
+var INFO_TAG = '<span class="tooltip tooltip_top" data_tooltip_top="__SOURCE__">' + 
+'<span class="tooltip tooltip_middle" data_tooltip_middle="__DATE__">' +
+'<span class="tooltip tooltip_bottom" data_tooltip_bottom="&quot;__ARTICLE_TITLE__&quot;">';
+var INFO_TAG_END = '</span></span></span>';
+// #############################################################################
+
+// #############################################################################
+// QUOTE VALIDITY CHECKING CONSTANTS
+// #############################################################################
+var MIN_CHARS = 8;
+var MIN_WORDS = 4;
+var MIN_LONGEST_WORD_LENGTH = MIN_CHARS;
+// #############################################################################
+
+var quotes_highlighted = false;
+var quote_ids;
+// #############################################################################
+
+// A valid quote:
+// **MUST** be at least MIN_CHARS characters long
+// **MUST** have either:
+//  a word at least MIN_LONGEST_WORD_LENGTH characters long
+//  at least MIN_WORDS words
+function quoteValid(quote) {
+    var valid_quote = false;
+    
+    if (quote.length >= 8) {
+        var words = quote.split(" ");
+        if (words.length >= MIN_WORDS) {
+            valid_quote = true;
         } else {
-            id++;
-            quote_ids[$2] = id;
-            id_to_use = id;
+            for (var idx = 0; idx < words.length; idx++) {
+                if (words[idx].length >= MIN_LONGEST_WORD_LENGTH) {
+                    valid_quote = true;
+                }
+            }
         }
-        return $1 + load_tag.replace('ID', "" + id_to_use) + $2 + load_tag_end + $3;
-    });
-    if ($(el).text() !== replaced) {
-        $(el).replaceWith(replaced);
     }
-})
+    
+    return valid_quote;
+}
+
+function extractText() {
+    var article_pieces = [];
+    $("body").find("div").contents().each(function(i, el) {
+        var text = $(el).text();
+        if (text !== undefined) {
+            var reduced = text.replace(/\s{2,}/g, ' ');
+            if (reduced.length > 50) {
+                if (text.length / reduced.length < 2 && text.length / reduced.length > 1.1) {
+                    article_pieces.push(reduced);
+                }
+            }
+        }
+    })
+    
+    var article = article_pieces.join(" ");
+    
+    return article;
+}
+
+// console.log(extractText());
+function extractQuotes() {
+    quote_ids = {};
+    var id = 0;
+    var selector = "p, div";
+    if (INCLUDE_TITLES) {
+        selector += ", :header";
+    }
+    if (CLOBBER_LINKS) {
+        selector += ", a";
+    }
+    $(selector).contents().filter(function (i, el) {
+        return el.nodeType === 3; // THIS MEANS THE CONTENTS ARE TEXT
+    }).each(function (i, el) {
+        var replaced = $(el).text().replace(/(["\u201C])([^"\u201D]+)(["\u201D])/g, function($0, $1, $2, $3) {
+            if (quoteValid($2)) {
+                // BUILD A UNIQUE IDENFITIER FOR THIS QUOTE
+                var id_to_use;
+                if ($2 in quote_ids) {
+                    id_to_use = quote_ids[$2];
+                } else {
+                    id++;
+                    quote_ids[$2] = id;
+                    id_to_use = id;
+                }
+                
+                return LOAD_TAG.replace('ID', "" + id_to_use) + $1 + $2 + $3 + LOAD_TAG_END;
+            } else {
+                return $1 + $2 + $3;
+            }
+        });
+        
+        if ($(el).text() !== replaced) {
+            $(el).replaceWith(replaced);
+        }
+    })
+}
 
 function reload(response) {
     console.log(response);
@@ -35,14 +126,28 @@ function reload(response) {
     $(id_string).attr('href', response['url']);
     $(id_string).contents().each(function (i, el) {
         if ($(el).text().length) {
-            var start_tag_populated = start_tag;
-            start_tag_populated = start_tag_populated.replace('__DATE__', response['date']);
-            start_tag_populated = start_tag_populated.replace('__SOURCE__', response['source']);
-            start_tag_populated = start_tag_populated.replace('__ARTICLE_TITLE__', response['title']);
+            var INFO_TAG_populated = INFO_TAG;
+            if ('date' in response && response['date'].length > 1) {
+                INFO_TAG_populated = INFO_TAG_populated.replace('__DATE__', response['date']);
+            } else {
+                INFO_TAG_populated = INFO_TAG_populated.replace('__DATE__', "No Source Date...");
+            }
             
-            $(el).replaceWith(start_tag_populated + quote + end_tag);
+            if ('name' in response && response['name'].length > 1) {
+                INFO_TAG_populated = INFO_TAG_populated.replace('__SOURCE__', response['name']);
+            } else {
+                INFO_TAG_populated = INFO_TAG_populated.replace('__SOURCE__', "No Source Name...");
+            }
+            
+            if ('title' in response && response['title'].length > 1) {
+                INFO_TAG_populated = INFO_TAG_populated.replace('__ARTICLE_TITLE__', response['title']);
+            } else {
+                INFO_TAG_populated = INFO_TAG_populated.replace('__ARTICLE_TITLE__', "No Article Title...");
+            }
+            
+            $(el).replaceWith(INFO_TAG_populated + '"' + quote + '"' + INFO_TAG_END);
         }
-    })
+    });
 }
 
 function domainFromURL(url) {
@@ -56,46 +161,112 @@ function domainFromURL(url) {
     return domain;
 }
 
-$(".quote").hover(
-    function(e) {
-        if (e.type === "mouseenter" && !this.working) {
-            this.working = true;
-            var quote = e.currentTarget.outerText;
-            var test_response = '{' +
-                                '"domain": "http://www.example-website.com", ' +
-                                '"url": "http://www.google.com/", ' +
-                                '"title": "Test Article [API Limit Reached]", ' + 
-                                '"source": "Test Source", ' +
-                                '"date": "January 16, 2016 1:30 EST", ' + 
-                                '"quote": "' + quote + '"' +
-                                '}';
-            
-            var xhr = new XMLHttpRequest();
-            var URL = "https://quotedserver.herokuapp.com/lookup/__/results/";
-            URL = URL.replace('__', quote.replace(/ /g, '+'));
-            xhr.onreadystatechange = function (e) {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        var JSON_object = JSON.parse(xhr.responseText);
-                        if (!('date' in JSON_object)) {
-                            JSON_object['date'] = xhr.getResponseHeader('Date');
+function unhighlightQuotes() {
+    $(".tooltip").contents().unwrap();
+    $(".quote").contents().unwrap();
+}
+
+function highlightQuotes() {
+    $(".quote").hover(
+        function(e) {
+            if (e.type === "mouseenter" && !this.working) {
+                this.working = true;
+                var quote = e.currentTarget.outerText;
+                quote = quote.substring(1, quote.length - 1);
+                var test_response = '{' +
+                '"domain": "http://www.example-website.com", ' +
+                '"url": "http://www.google.com/", ' +
+                '"title": "Test Article", ' + 
+                '"name": "Test Source", ' +
+                '"date": "January 16, 2016 1:30 EST", ' + 
+                '"quote": "' + quote + '"' +
+                '}';
+                var invalid_json = '{' +
+                '"domain": "http://www.example-website.com", ' +
+                '"url": "http://www.google.com/", ' +
+                '"title": "Invalid JSON Response", ' + 
+                '"name": "Error", ' +
+                '"date": "January 16, 2016 1:30 EST", ' + 
+                '"quote": "' + quote + '"' +
+                '}';
+                
+                // reload(JSON.parse(test_response));
+                // return;
+                var xhr = new XMLHttpRequest();
+                // var URL = "http://localhost:5000/lookup/__/results/";
+                var URL = "https://quotedserver.herokuapp.com/lookup/__/results/";
+                URL = URL.replace('__', encodeURIComponent(quote));
+                console.log(URL);
+                xhr.onreadystatechange = function (e) {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            console.log(xhr.responseText);
+                            var JSON_object = JSON.parse(xhr.responseText);
+                            if (!('date' in JSON_object)) {
+                                JSON_object['date'] = xhr.getResponseHeader('Date');
+                            }
+                            reload(JSON_object);
+                        } else {
+                            console.log("Non-200 status", xhr.status);
+                            reload(JSON.parse(test_response));
                         }
-                        reload(JSON_object);
-                    } else {
-                        console.log(test_response);
-                        reload(JSON.parse(test_response));
                     }
-                }
-                this.working = false;
-            };
-            xhr.onerror = function (e) {
-                console.error(xhr.statusText);
-                console.log(xhr.statusText);
-                reload(JSON.parse(test_response));
-                this.working = false;
-            };
-            xhr.open("GET", URL, true);
-            xhr.send(null);
+                    this.working = false;
+                };
+                xhr.onerror = function (e) {
+                    console.log("THIS IS AN ERROR:");
+                    console.error(xhr.statusText);
+                    console.log(xhr.statusText);
+                    reload(JSON.parse(test_response));
+                    this.working = false;
+                };
+                xhr.open("GET", URL, true);
+                xhr.send(null);
+            }
         }
+    )
+}
+
+chrome.runtime.onMessage.addListener(
+    function(request, sender, sendResponse) {
+        if (request.toggle === 'y' || request.signin === 'y') {
+            if (quotes_highlighted) {
+                unhighlightQuotes();
+            } else {
+                extractQuotes();
+                highlightQuotes();
+            }
+            quotes_highlighted = !quotes_highlighted;
+            
+            console.log('toggling');
+            // var xhr = new XMLHttpRequest();
+            // var URL = "https://quotedserver.herokuapp.com/lookup/toggledomain/__/";
+            // console.log(window.location.hostname);
+            // URL = URL.replace('__', btoa(window.location.hostname));
+            // xhr.onreadystatechange = function (e) {
+            //     if (xhr.readyState === 4) {
+            //         if (xhr.status === 200) {
+            //             
+            //         } else {
+            //             console.log("Non-200 status", xhr.status);
+            //         }
+            //     }
+            //     this.working = false;
+            // };
+            // xhr.onerror = function (e) {
+            //     console.log("THIS IS AN ERROR:");
+            //     console.error(xhr.statusText);
+            //     console.log(xhr.statusText);
+            //     reload(JSON.parse(test_response));
+            //     this.working = false;
+            // };
+            // xhr.open("GET", URL, true);
+            // xhr.setRequestHeader("Authorization", btoa(request['user']));
+            // xhr.send(null);
+        } else if (request.signout === 'y') {
+            unhighlightQuotes();
+        }
+        console.log("MESSAGE FROM BACKGROUND SCRIPT:");
+        console.log(request);
     }
-)
+);
