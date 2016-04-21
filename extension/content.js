@@ -80,7 +80,6 @@ function extractText() {
     return article;
 }
 
-// console.log(extractText());
 function extractQuotes() {
     quote_ids = {};
     var id = 0;
@@ -181,21 +180,11 @@ function highlightQuotes() {
                 '"date": "January 16, 2016 1:30 EST", ' + 
                 '"quote": "' + quote + '"' +
                 '}';
-                var invalid_json = '{' +
-                '"domain": "http://www.example-website.com", ' +
-                '"url": "http://www.google.com/", ' +
-                '"title": "Invalid JSON Response", ' + 
-                '"name": "Error", ' +
-                '"date": "January 16, 2016 1:30 EST", ' + 
-                '"quote": "' + quote + '"' +
-                '}';
                 
-                // reload(JSON.parse(test_response));
-                // return;
                 var xhr = new XMLHttpRequest();
-                // var URL = "http://localhost:5000/lookup/__/results/";
                 var URL = "https://quotedserver.herokuapp.com/lookup/__/results/";
                 URL = URL.replace('__', encodeURIComponent(quote));
+                console.log(encodeURIComponent(quote));
                 console.log(URL);
                 xhr.onreadystatechange = function (e) {
                     if (xhr.readyState === 4) {
@@ -227,46 +216,85 @@ function highlightQuotes() {
     )
 }
 
+function highlightIfNeeded(domains, domain) {
+    if (domains.indexOf(domain) === -1 && domain.length) {
+        unhighlightQuotes();
+    } else {
+        extractQuotes();
+        highlightQuotes();
+    }
+}
+
+function currentDomain() {
+    var domain = window.location.hostname;
+    if (domain.length == 0) {
+        return '_';
+    } else {
+        return domain;
+    }
+}
+
+function domainRequestWithURL(URL, username) {
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function (e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log('VALID DOMAINS:');
+                console.log(xhr.responseText);
+                var valid_domains = JSON.parse(xhr.responseText);
+                highlightIfNeeded(valid_domains, currentDomain());
+            } else {
+                console.log("Non-200 status", xhr.status);
+            }
+        }
+        this.working = false;
+    };
+    xhr.onerror = function (e) {
+        console.log("THIS IS AN ERROR:");
+        console.error(xhr.statusText);
+        console.log(xhr.statusText);
+        this.working = false;
+    };
+    xhr.open("GET", URL, true);
+    xhr.setRequestHeader("Authorization", btoa(username));
+    xhr.send(null);
+}
+
+function highlightFromValidDomains(username) {
+    var URL = "https://quotedserver.herokuapp.com/lookup/getvaliddomains/";
+    domainRequestWithURL(URL, username);
+}
+
+function toggleDomain(username) {
+    var URL = "https://quotedserver.herokuapp.com/lookup/toggledomain/__/";
+    URL = URL.replace('__', btoa(currentDomain()));
+    domainRequestWithURL(URL, username);
+}
+
+function requestUsername() {
+    chrome.runtime.sendMessage({task: "getUser"}, function(response) {});
+}
+
 chrome.runtime.onMessage.addListener(
     function(request, sender, sendResponse) {
-        if (request.toggle === 'y' || request.signin === 'y') {
-            if (quotes_highlighted) {
-                unhighlightQuotes();
-            } else {
-                extractQuotes();
-                highlightQuotes();
-            }
-            quotes_highlighted = !quotes_highlighted;
-            
-            console.log('toggling');
-            // var xhr = new XMLHttpRequest();
-            // var URL = "https://quotedserver.herokuapp.com/lookup/toggledomain/__/";
-            // console.log(window.location.hostname);
-            // URL = URL.replace('__', btoa(window.location.hostname));
-            // xhr.onreadystatechange = function (e) {
-            //     if (xhr.readyState === 4) {
-            //         if (xhr.status === 200) {
-            //             
-            //         } else {
-            //             console.log("Non-200 status", xhr.status);
-            //         }
-            //     }
-            //     this.working = false;
-            // };
-            // xhr.onerror = function (e) {
-            //     console.log("THIS IS AN ERROR:");
-            //     console.error(xhr.statusText);
-            //     console.log(xhr.statusText);
-            //     reload(JSON.parse(test_response));
-            //     this.working = false;
-            // };
-            // xhr.open("GET", URL, true);
-            // xhr.setRequestHeader("Authorization", btoa(request['user']));
-            // xhr.send(null);
-        } else if (request.signout === 'y') {
-            unhighlightQuotes();
-        }
+        var task = request.task;
         console.log("MESSAGE FROM BACKGROUND SCRIPT:");
         console.log(request);
+        
+        if (task === 'toggle' || task === 'signin') {
+            toggleDomain(request.user);
+        } else if (task === 'signout') {
+            unhighlightQuotes();
+        } else if (task === 'usernamerequest') {
+            highlightFromValidDomains(request.user);
+        } else if (task === 'nouser') {
+            
+        }
     }
 );
+
+// #############################################################################
+// THIS IS THE ONLY THING THAT HAPPENS EVERY TIME
+// #############################################################################
+requestUsername();
+// #############################################################################
