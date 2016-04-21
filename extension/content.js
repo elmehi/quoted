@@ -281,11 +281,11 @@ chrome.runtime.onMessage.addListener(
         console.log("MESSAGE FROM BACKGROUND SCRIPT:");
         console.log(request);
         
-        if (task === 'toggle' || task === 'signin') {
+        if (task === 'toggle') {
             toggleDomain(request.user);
         } else if (task === 'signout') {
             unhighlightQuotes();
-        } else if (task === 'usernamerequest') {
+        } else if (task === 'usernamerequest' || task === 'signin') {
             highlightFromValidDomains(request.user);
         } else if (task === 'nouser') {
             
