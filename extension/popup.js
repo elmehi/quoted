@@ -31,7 +31,7 @@ function signUp() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
                 console.log(xhr.responseText);
-                if (responseText === auth_token) {
+                if (xhr.responseText === auth_token) {
                     // SUCCESSFUL SIGNUP
                     signIn();
                 } else {
