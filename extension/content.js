@@ -190,7 +190,7 @@ function highlightQuotes(username) {
                 
                 var xhr = new XMLHttpRequest();
                 var URL = "https://quotedserver.herokuapp.com/lookup/__/results/";
-                URL = URL.replace('__', encodeURIComponent(replaceWordChars(quote));
+                URL = URL.replace('__', encodeURIComponent(replaceWordChars(quote)));
                 console.log(encodeURIComponent(quote));
                 console.log(URL);
                 xhr.onreadystatechange = function (e) {
