@@ -116,6 +116,15 @@ function updateUIForSignedOut() {
     document.getElementById("signedout").style.display = "inline";
 }
 
+function enableRemoveButtonIfNecessary() {
+    var select = document.getElementById("domains");
+    for (var idx = 0; idx < select.length; idx++) {
+        if (select.options[idx].selected) {
+            document.getElementById("removedomains").disabled = false;
+        }
+    }
+}
+
 function updateSliderForHighlightingState(state) {
     console.log(state);
     document.getElementById("highlightstate").value = parseInt(state);
@@ -124,22 +133,29 @@ function updateSliderForHighlightingState(state) {
             $('#highlightstatetext').text('Quote highlighting disabled for all domains.');
             document.getElementById("domains").disabled = true;
             document.getElementById("removedomains").disabled = true;
+            document.getElementById("togglecurrentdomain").disabled = true;
             document.getElementById("domains").style.opacity = .4;
             document.getElementById("removedomains").style.opacity = .4;
+            document.getElementById("togglecurrentdomain").style.opacity = .4;
             break;
         case 1:
-            $('#highlightstatetext').text('Quote highlighting enabled only on the following domains:');
-            document.getElementById("domains").disabled = '';
-            document.getElementById("removedomains").disabled = '';
+            $('#highlightstatetext').text('Quote highlighting enabled for domains:');
+            document.getElementById("domains").disabled = false;
+            document.getElementById("togglecurrentdomain").disabled = false;
             document.getElementById("domains").style.opacity = 1;
             document.getElementById("removedomains").style.opacity = 1;
+            document.getElementById("togglecurrentdomain").style.opacity = 1;
+            
+            enableRemoveButtonIfNecessary();
             break;
         case 2:
-            $('#highlightstatetext').text('Quote highlighting enabled on all domains.');
+            $('#highlightstatetext').text('Quote highlighting enabled for all domains.');
             document.getElementById("domains").disabled = true;
             document.getElementById("removedomains").disabled = true;
+            document.getElementById("togglecurrentdomain").disabled = true;
             document.getElementById("domains").style.opacity = .4;
             document.getElementById("removedomains").style.opacity = .4;
+            document.getElementById("togglecurrentdomain").style.opacity = .4;
             break;
     }
 }
@@ -383,6 +399,8 @@ function populateDomainSelectField() {
                         list.add(option);
                     }
                 }
+                
+                document.getElementById("removedomains").disabled = true;
             } else {
                 console.log("Non-200 status", xhr.status);
             }
@@ -406,10 +424,26 @@ function populateDomainSelectField() {
     });
 }
 
+function toggleCurrentDomain() {
+    chrome.runtime.sendMessage({task: "toggle"}, function(response) {});
+    
+    delayPopulate();
+}
+
+function delayPopulate() {
+    setTimeout(function() { 
+        populateDomainSelectField();
+    }, 150);
+}
+
+chrome.commands.onCommand.addListener(delayPopulate);
+
 document.getElementById("signin").onclick = signIn;
 document.getElementById("signout").onclick = signOut;
 document.getElementById("signup").onclick = signUp;
 document.getElementById("removedomains").onclick = disableSelectedDomains;
+document.getElementById("togglecurrentdomain").onclick = toggleCurrentDomain;
+document.getElementById("domains").onchange = enableRemoveButtonIfNecessary;
 
 $('#highlightstate').change(function(event) {
     var state = parseInt($(event.target).val());

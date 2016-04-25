@@ -20,8 +20,11 @@
         <div style="float: left; width: 32.3%; text-align: right;">All</div>
         <input type="range" id="highlightstate" style="float: left; width: 100%; margin-bottom:4px;" min="0" max="2" step="1" value="0" />
         <span id="highlightstatetext">Quote highlighting disabled.</span>
-        <select id="domains" size="4" disabled style="width: 80%; margin-top:4px; display: block; margin-left: auto; margin-right: auto;" multiple></select>
-        <button disabled style="margin:4px; display: block; margin-left: auto; margin-right: auto;" id="removedomains">Disable Selected</button>
+        <select id="domains" size="4" disabled style="width: 95%; margin-top:4px; display: block; margin-left: auto; margin-right: auto;" multiple></select>
+        <p style="text-align: center;">
+            <button disabled=true style="margin:1px; display: inline;" id="removedomains">Remove Selected</button>
+            <button disabled=true style="margin:1px; display: inline;" id="togglecurrentdomain">Toggle Current Domain</button>
+        </p>
         <hr>
         <h3 id="graphtitle" style="text-align: center;">Quote Lookup History</h3>
         <div id="container" style="height: 210px; width: 250px; margin: 0 auto"></div>

@@ -1,7 +1,4 @@
-// This is fired when we get a key combination
-chrome.commands.onCommand.addListener(function(command) {
-    console.log(command);
-    
+function handleTogglePress(command) {
     // Check to see if we have a logged in user
     chrome.storage.sync.get('USER', function (obj) {
         var user = obj['USER'];
@@ -11,7 +8,7 @@ chrome.commands.onCommand.addListener(function(command) {
                 var username = user['username'];
                 
                 // Tell the content script we've got a toggle
-                chrome.tabs.query({active: true}, function(tabs) {
+                chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
                     chrome.tabs.sendMessage(tabs[0].id, {'task':'toggle', 'user':username}, function() {});
                 });
             } else {
@@ -25,7 +22,10 @@ chrome.commands.onCommand.addListener(function(command) {
             console.log(obj);
         }
     });
-});
+}
+
+// This is fired when we get a key combination
+chrome.commands.onCommand.addListener(handleTogglePress);
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     console.log(request);
@@ -40,16 +40,16 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
                     var username = user['username'];
                     
                     // Tell the content script we've got the username
-                    chrome.tabs.query({active: true}, function(tabs) {
+                    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
                         chrome.tabs.sendMessage(tabs[0].id, {'task':'usernamerequest', 'user':username}, function() {});
                     });
                 } else {
-                    chrome.tabs.query({active: true}, function(tabs) {
+                    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
                         chrome.tabs.sendMessage(tabs[0].id, {'task':'nouser'}, function() {});
                     });
                 }
             } else {
-                chrome.tabs.query({active: true}, function(tabs) {
+                chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
                     chrome.tabs.sendMessage(tabs[0].id, {'task':'nouser'}, function() {});
                 });
             }
@@ -57,5 +57,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     } else if (request.task == 'badgeUpdate') {
         var info = {'text': request.text, 'tabId': sender.tab.id};
         chrome.browserAction.setBadgeText(info);
+    } else if (request.task == 'toggle') {
+        handleTogglePress();
     }
 });

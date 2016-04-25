@@ -141,6 +141,7 @@ function reload(response) {
     var id_string = "[id=" + quote_ids[quote] + "]";
     var block = $(id_string);
     $(id_string).attr('href', response['url']);
+    $(id_string).attr('target', "_blank");
     $(id_string).contents().each(function (i, el) {
         if ($(el).text().length) {
             var INFO_TAG_populated = INFO_TAG;
@@ -284,13 +285,57 @@ function domainRequestWithURL(URL, username) {
 
 function highlightFromValidDomains(username) {
     var URL = "https://quotedserver.herokuapp.com/lookup/getvaliddomains/";
-    domainRequestWithURL(URL, username);
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function (e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log('VALID DOMAINS:');
+                console.log(xhr.responseText);
+                var valid_domains = JSON.parse(xhr.responseText);
+                highlightIfNeeded(valid_domains, currentDomain(), username);
+            } else {
+                console.log("Non-200 status", xhr.status);
+            }
+        }
+        this.working = false;
+    };
+    xhr.onerror = function (e) {
+        console.log("THIS IS AN ERROR:");
+        console.error(xhr.statusText);
+        console.log(xhr.statusText);
+        this.working = false;
+    };
+    xhr.open("GET", URL, true);
+    xhr.setRequestHeader("Authorization", btoa(username));
+    xhr.send(null);
 }
 
 function toggleDomain(username) {
     var URL = "https://quotedserver.herokuapp.com/lookup/toggledomain/__/";
     URL = URL.replace('__', btoa(currentDomain()));
-    domainRequestWithURL(URL, username);
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function (e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log('VALID DOMAINS:');
+                console.log(xhr.responseText);
+                
+                requestHighlightingState(username);
+            } else {
+                console.log("Non-200 status", xhr.status);
+            }
+        }
+        this.working = false;
+    };
+    xhr.onerror = function (e) {
+        console.log("THIS IS AN ERROR:");
+        console.error(xhr.statusText);
+        console.log(xhr.statusText);
+        this.working = false;
+    };
+    xhr.open("GET", URL, true);
+    xhr.setRequestHeader("Authorization", btoa(username));
+    xhr.send(null);
 }
 
 function requestUsername() {
@@ -307,11 +352,14 @@ function requestHighlightingState(username) {
                 console.log("Highlighting state:");
                 console.log(xhr.responseText);
                 unhighlightQuotes();
+                
                 if (xhr.responseText === '0') {
-                    // do nothing
+                    // all quote highlighting disabled
                 } else if (xhr.responseText === '1') {
+                    // quote highlighting enabled only for whitelist
                     highlightFromValidDomains(username);
                 } else if (xhr.responseText === '2') {
+                    // quote highlighting enabled for all domains
                     extractQuotes();
                     highlightQuotes(username);
                 } else {
