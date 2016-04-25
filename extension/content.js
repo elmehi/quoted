@@ -99,14 +99,15 @@ function extractQuotes() {
         return el.nodeType === 3; // THIS MEANS THE CONTENTS ARE TEXT
     }).each(function (i, el) {
         var replaced = $(el).text().replace(/(["\u201C])([^"\u201D]+)(["\u201D])/g, function($0, $1, $2, $3) {
-            if (quoteValid($2)) {
+            var quote = replaceWordChars($2);
+            if (quoteValid(quote)) {
                 // BUILD A UNIQUE IDENFITIER FOR THIS QUOTE
                 var id_to_use;
-                if ($2 in quote_ids) {
-                    id_to_use = quote_ids[$2];
+                if (quote in quote_ids) {
+                    id_to_use = quote_ids[quote];
                 } else {
                     id++;
-                    quote_ids[$2] = id;
+                    quote_ids[quote] = id;
                     id_to_use = id;
                 }
                 
@@ -191,7 +192,7 @@ function highlightQuotes(username) {
                 var xhr = new XMLHttpRequest();
                 var URL = "https://quotedserver.herokuapp.com/lookup/__/results/";
                 URL = URL.replace('__', encodeURIComponent(replaceWordChars(quote)));
-                console.log(encodeURIComponent(quote));
+                console.log(replaceWordChars(quote));
                 console.log(URL);
                 xhr.onreadystatechange = function (e) {
                     if (xhr.readyState === 4) {
