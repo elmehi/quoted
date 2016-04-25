@@ -1,21 +1,50 @@
+/*********************************************************/
+/* SOME CONSTANT KEYS */
+/*********************************************************/
 var USER_KEY = 'username';
 var PASS_KEY = 'password';
 var AUTH_KEY = 'auth';
 var SIGN_IN_MESSAGE = 'Log in or sign up!';
 var BAD_AUTH_MESSAGE = 'Invalid credentials.'
 var UNKNOWN_ERROR = 'Request failed. Try Again.'
+/*********************************************************/
 
+/*
+ * Helper function to send a message (dict) to the content script.
+ */
 function sendMessageToContentJS(message, callback) {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, message, function() {
-            console.log("Sent message to content script:");
-            console.log(message);
-        });
+        chrome.tabs.sendMessage(tabs[0].id, message, callback);
     });
 }
 
+/*
+ * Helper function to perform XMLHTTPRequests.
+ */
+function xhttprequest(URL, username, success) {
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function (e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log(xhr.responseText);
+                success(xhr);
+            } else {
+                console.log("Non-200 status", xhr.status);
+            }
+        }
+    };
+    xhr.onerror = function (e) {
+        console.error(xhr.statusText);
+    };
+    xhr.open("GET", URL, true);
+    xhr.setRequestHeader("Authorization", btoa(username));
+    xhr.send(null);
+}
+
+/*
+ * Sign up a new user to Quoted.
+ */
 function signUp() {
-    console.log('sign up');
     sendMessageToContentJS({message:'signing up'}, function(){});
     
     var user = document.getElementById('username').value;
@@ -23,85 +52,47 @@ function signUp() {
     var auth_token = 'a_random_string';
     
     // Start signup request
-    var xhr = new XMLHttpRequest();
-    xhr.withCredentials = true;
     var URL = "https://quotedserver.herokuapp.com/lookup/signup/";
-    console.log(xhr.requestHeader);
-    xhr.onreadystatechange = function (e) {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                console.log(xhr.responseText);
-                if (xhr.responseText === auth_token) {
-                    // SUCCESSFUL SIGNUP
-                    signIn();
-                } else {
-                    // BAD AUTHENTICATION
-                    console.log("Authentication ERROR");
-                }
-            } else {
-                console.log("Non-200 status on signup", xhr.status);
-            }
+    xhttprequest(URL, user + ":" + pass + ":" + auth_token, function(xhr) {
+        if (xhr.responseText === auth_token) {
+            // SUCCESSFUL SIGNUP
+            signIn();
+        } else {
+            // BAD AUTHENTICATION
+            console.log("Authentication ERROR");
         }
-        this.working = false;
-    };
-    xhr.onerror = function (e) {
-        console.log("THIS IS AN ERROR (SIGNUP):");
-        console.error(xhr.statusText);
-        console.log(xhr.statusText);
-        this.working = false;
-    };
-    xhr.open("GET", URL, true);
-    xhr.setRequestHeader("Authorization", btoa(user + ":" + pass + ":" + auth_token));
-    xhr.send(null);
+    });
 }
 
+/*
+ * Sign an existing user into Quoted.
+ */
 function signIn() {
     var user = document.getElementById('username').value;
     var pass = document.getElementById('password').value;
     var auth_token = 'a_random_string';
     
-    document.getElementById("password").value = "";
-    
     // Record that we've started an authentication request
-    var xhr = new XMLHttpRequest();
-    xhr.withCredentials = true;
     var URL = "https://quotedserver.herokuapp.com/lookup/auth/";
-    xhr.onreadystatechange = function (e) {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                console.log(xhr.responseText);
-                if (xhr.responseText === auth_token) {
-                    // SUCCESSFUL AUTHENTICATION
-                    chrome.storage.sync.set({USER: {username:user, token:auth_token, authenticated:'y'}}, function() {
-                        sendMessageToContentJS({'task':'signin', user:user});
-                        updateUIForSignedIn(user);
-                    });
-                } else {
-                    // BAD AUTHENTICATION
-                    console.log("Authentication ERROR");
-                    $('#signedoutmessage').text(BAD_AUTH_MESSAGE);
-                }
-            } else {
-                console.log("Non-200 status on auth", xhr.status);
-                $('#signedoutmessage').text(UNKNOWN_ERROR);
-            }
+    xhttprequest(URL, user + ":" + pass + ":" + auth_token, function(xhr) {
+        if (xhr.responseText === auth_token) {
+            // SUCCESSFUL AUTHENTICATION
+            document.getElementById("password").value = "";
+            
+            chrome.storage.sync.set({USER: {username:user, token:auth_token, authenticated:'y'}}, function() {
+                sendMessageToContentJS({'task':'signin', user:user});
+                updateUIForSignedIn(user);
+            });
+        } else {
+            // BAD AUTHENTICATION
+            $('#signedoutmessage').text(BAD_AUTH_MESSAGE);
         }
-        this.working = false;
-    };
-    xhr.onerror = function (e) {
-        console.log("THIS IS AN ERROR (SIGN IN):");
-        console.error(xhr.statusText);
-        console.log(xhr.statusText);
-        reload(JSON.parse(test_response));
-        this.working = false;
-    };
-    xhr.open("GET", URL, true);
-    xhr.setRequestHeader("Authorization", btoa(user + ":" + pass + ":" + auth_token));
-    xhr.send(null);
-    
-    console.log('Sending Message');
+    });
 }
 
+/*
+ * Sign the current user out of Quoted and clear the user data.
+ */
 function signOut() {
     chrome.storage.sync.set({USER: {}}, function() {
         sendMessageToContentJS({'task':'signout'});
@@ -109,6 +100,9 @@ function signOut() {
     });
 }
 
+/* 
+ * Update the UI to reflect a signed out user.
+ */
 function updateUIForSignedOut() {
     $('#signedoutmessage').text(SIGN_IN_MESSAGE);
     
@@ -116,6 +110,9 @@ function updateUIForSignedOut() {
     document.getElementById("signedout").style.display = "inline";
 }
 
+/*
+ * If the domain list has a domain selected, enable the remove domain button.
+ */
 function enableRemoveButtonIfNecessary() {
     var select = document.getElementById("domains");
     for (var idx = 0; idx < select.length; idx++) {
@@ -125,18 +122,28 @@ function enableRemoveButtonIfNecessary() {
     }
 }
 
+/*
+ * Grey out the individual domain controls when we aren't in whitelist mode.
+ */
+function disableDomainControls() {
+    document.getElementById("domains").disabled = true;
+    document.getElementById("removedomains").disabled = true;
+    document.getElementById("togglecurrentdomain").disabled = true;
+    document.getElementById("domains").style.opacity = .4;
+    document.getElementById("removedomains").style.opacity = .4;
+    document.getElementById("togglecurrentdomain").style.opacity = .4;
+}
+
+/*
+ * Update UI to reflect a particular slider state.
+ */
 function updateSliderForHighlightingState(state) {
     console.log(state);
     document.getElementById("highlightstate").value = parseInt(state);
     switch (state) {
         case 0:
             $('#highlightstatetext').text('Quote highlighting disabled for all domains.');
-            document.getElementById("domains").disabled = true;
-            document.getElementById("removedomains").disabled = true;
-            document.getElementById("togglecurrentdomain").disabled = true;
-            document.getElementById("domains").style.opacity = .4;
-            document.getElementById("removedomains").style.opacity = .4;
-            document.getElementById("togglecurrentdomain").style.opacity = .4;
+            disableDomainControls();
             break;
         case 1:
             $('#highlightstatetext').text('Quote highlighting enabled for domains:');
@@ -150,62 +157,26 @@ function updateSliderForHighlightingState(state) {
             break;
         case 2:
             $('#highlightstatetext').text('Quote highlighting enabled for all domains.');
-            document.getElementById("domains").disabled = true;
-            document.getElementById("removedomains").disabled = true;
-            document.getElementById("togglecurrentdomain").disabled = true;
-            document.getElementById("domains").style.opacity = .4;
-            document.getElementById("removedomains").style.opacity = .4;
-            document.getElementById("togglecurrentdomain").style.opacity = .4;
+            disableDomainControls();
             break;
     }
 }
 
+/*
+ * Update the database to reflect a new highlighting state for the user.
+ */
 function saveNewHighlightingState(state, username) {
-    var xhr = new XMLHttpRequest();
     var URL = "https://quotedserver.herokuapp.com/lookup/sethighlightedstate/" + state + '/';
-    xhr.onreadystatechange = function (e) {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                console.log('saved new state:');
-                console.log(state);
-                sendMessageToContentJS({'task':'signin', 'user':username});
-            }
-        }
-        this.working = false;
-    };
-    xhr.onerror = function (e) {
-        console.log("THIS IS AN ERROR:");
-        console.error(xhr.statusText);
-        console.log(xhr.statusText);
-    };
-    xhr.open("GET", URL, true);
-    xhr.setRequestHeader("Authorization", btoa(username));
-    xhr.send(null);
+    xhttprequest(URL, username, function(xhr) {
+        sendMessageToContentJS({'task':'signin', 'user':username});
+    });
 }
 
 function requestHighlightingState(username) {
-    console.log('requesting highlighting state');
-    var xhr = new XMLHttpRequest();
     var URL = "https://quotedserver.herokuapp.com/lookup/gethighlightedstate/";
-    xhr.onreadystatechange = function (e) {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                console.log("HIGHLIGHTINGSTATE");
-                console.log(xhr.responseText);
-                updateSliderForHighlightingState(parseInt(xhr.responseText));
-            } else {
-                console.log("Non-200 status", xhr.status);
-            }
-        }
-    };
-    xhr.onerror = function (e) {
-        console.log("THIS IS AN ERROR:");
-        console.error(xhr.statusText);
-        console.log(xhr.statusText);
-    };
-    xhr.open("GET", URL, true);
-    xhr.setRequestHeader("Authorization", btoa(username));
-    xhr.send(null);
+    xhttprequest(URL, username, function(xhr) {
+        updateSliderForHighlightingState(parseInt(xhr.responseText));
+    });
 }
 
 function updateUIForSignedIn(username) {
@@ -279,15 +250,13 @@ function domainFromURL(url) {
 
 function showHistoryGraph() {
     // request history from heroku
-    var xhr = new XMLHttpRequest();
-    var URL = "https://quotedserver.herokuapp.com/lookup/gethistory";
-    xhr.onreadystatechange = function (e) {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                console.log(xhr.responseText);
+    chrome.storage.sync.get("USER", function (obj) {
+        var user = obj['USER'];
+        if ('username' in user) {
+            var URL = "https://quotedserver.herokuapp.com/lookup/gethistory";
+            xhttprequest(URL, user['username'], function(xhr) {
                 var responseData = JSON.parse(xhr.responseText);
-                console.log(responseData);
-                console.log(responseData.length);
+                
                 if (responseData.length > 0) {
                     var data = {};
                     for (var idx = 0; idx < responseData.length; idx++) {
@@ -299,8 +268,6 @@ function showHistoryGraph() {
                             data[domain] = 1;
                         }
                     }
-                    
-                    console.log(data);
                     
                     var highchartsData = [];
                     for (var key in data) {
@@ -315,23 +282,7 @@ function showHistoryGraph() {
                     document.getElementById("container").style.display = 'none';
                     document.getElementById("norequests").style.display = 'block';
                 }
-            } else {
-                console.log("Non-200 status", xhr.status);
-            }
-        }
-    };
-    
-    xhr.onerror = function (e) {
-        console.log("HISTORY ERROR:");
-        console.log(xhr.statusText);
-    };
-    
-    chrome.storage.sync.get("USER", function (obj) {
-        var user = obj['USER'];
-        if ('username' in user) {
-            xhr.open("GET", URL, true);
-            xhr.setRequestHeader("Authorization", btoa(user['username']));
-            xhr.send(null);
+            });
         }
     });
 }
@@ -339,51 +290,34 @@ function showHistoryGraph() {
 function disableSelectedDomains() {
     var select = document.getElementById("domains");
     var selected = [];
-    var username;
-    for (var idx = 0; idx < select.length; idx++) {
-        if (select.options[idx].selected) {
-            var URL = "https://quotedserver.herokuapp.com/lookup/toggledomain/";
-            URL += btoa(select.options[idx].text) + '/';
-            var xhr = new XMLHttpRequest();
-            
-            xhr.onreadystatechange = function (e) {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        sendMessageToContentJS({'task':'signin', 'user':username});
-                    }
+    
+    chrome.storage.sync.get("USER", function (obj) {
+        var user = obj['USER'];
+        if ('username' in user) {
+            for (var idx = 0; idx < select.length; idx++) {
+                if (select.options[idx].selected) {
+                    var URL = "https://quotedserver.herokuapp.com/lookup/toggledomain/";
+                    URL += btoa(select.options[idx].text) + '/';
+                    xhttprequest(URL, user['username'], function(xhr) {
+                        sendMessageToContentJS({'task':'signin', 'user':user.username});
+                    });
+                    
+                    select.remove(idx);
+                    idx--;
                 }
-            };
+            }
             
-            xhr.onerror = function (e) {
-                console.log("THIS IS AN ERROR:");
-                console.error(xhr.statusText);
-                console.log(xhr.statusText);
-            };
-            
-            select.remove(idx);
-            idx--;
-            
-            chrome.storage.sync.get("USER", function (obj) {
-                var user = obj['USER'];
-                if ('username' in user) {
-                    username = user['username'];
-                    xhr.open("GET", URL, true);
-                    xhr.setRequestHeader("Authorization", btoa(user['username']));
-                    xhr.send(null);
-                }
-            });
+            delayPopulate();
         }
-    }
+    });
 }
 
 function populateDomainSelectField() {
-    var URL = "https://quotedserver.herokuapp.com/lookup/getvaliddomains/";
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function (e) {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                console.log('VALID DOMAINS:');
-                console.log(xhr.responseText);
+    chrome.storage.sync.get("USER", function (obj) {
+        var user = obj['USER'];
+        if ('username' in user) {
+            var URL = "https://quotedserver.herokuapp.com/lookup/getvaliddomains/";
+            xhttprequest(URL, user.username, function(xhr) {
                 var valid_domains = JSON.parse(xhr.responseText);
                 var list = document.getElementById("domains");
                 // clear the list
@@ -401,64 +335,64 @@ function populateDomainSelectField() {
                 }
                 
                 document.getElementById("removedomains").disabled = true;
-            } else {
-                console.log("Non-200 status", xhr.status);
-            }
-        }
-        this.working = false;
-    };
-    xhr.onerror = function (e) {
-        console.log("THIS IS AN ERROR:");
-        console.error(xhr.statusText);
-        console.log(xhr.statusText);
-        this.working = false;
-    };
-    
-    chrome.storage.sync.get("USER", function (obj) {
-        var user = obj['USER'];
-        if ('username' in user) {
-            xhr.open("GET", URL, true);
-            xhr.setRequestHeader("Authorization", btoa(user['username']));
-            xhr.send(null);
+            });
         }
     });
 }
 
+/*
+ * Toggle on or off the current domain.
+ */
 function toggleCurrentDomain() {
     chrome.runtime.sendMessage({task: "toggle"}, function(response) {});
     
     delayPopulate();
 }
 
+/*
+ * Refresh the domain select field after a delay.
+ */
 function delayPopulate() {
     setTimeout(function() { 
         populateDomainSelectField();
     }, 150);
 }
 
-chrome.commands.onCommand.addListener(delayPopulate);
+/* 
+ * Perform some basic setup connecting UI elements to javascript functions.
+ */
+function pageSetup() {
+    // Repopulate when the key combination is pressed.
+    chrome.commands.onCommand.addListener(delayPopulate);
 
-document.getElementById("signin").onclick = signIn;
-document.getElementById("signout").onclick = signOut;
-document.getElementById("signup").onclick = signUp;
-document.getElementById("removedomains").onclick = disableSelectedDomains;
-document.getElementById("togglecurrentdomain").onclick = toggleCurrentDomain;
-document.getElementById("domains").onchange = enableRemoveButtonIfNecessary;
+    document.getElementById("signin").onclick = signIn;
+    document.getElementById("signout").onclick = signOut;
+    document.getElementById("signup").onclick = signUp;
+    document.getElementById("removedomains").onclick = disableSelectedDomains;
+    document.getElementById("togglecurrentdomain").onclick = toggleCurrentDomain;
+    document.getElementById("domains").onchange = enableRemoveButtonIfNecessary;
 
-$('#highlightstate').change(function(event) {
-    var state = parseInt($(event.target).val());
-    updateSliderForHighlightingState(state);
-    chrome.storage.sync.get("USER", function (obj) {
-        var user = obj['USER'];
-        if ('username' in user) {
-            saveNewHighlightingState(state, user['username']);
-        }
+    $('#highlightstate').change(function(event) {
+        var state = parseInt($(event.target).val());
+        updateSliderForHighlightingState(state);
+        chrome.storage.sync.get("USER", function (obj) {
+            var user = obj['USER'];
+            if ('username' in user) {
+                saveNewHighlightingState(state, user['username']);
+            }
+        });
     });
-});
 
-// http://stackoverflow.com/questions/155188/trigger-a-button-click-with-javascript-on-the-enter-key-in-a-text-box
-$("#password,#username").keyup(function(event) {
-    if(event.keyCode == 13) $("#signin").click();
-});
+    // http://stackoverflow.com/questions/155188/trigger-a-button-click-with-javascript-on-the-enter-key-in-a-text-box
+    $("#password,#username").keyup(function(event) {
+        if(event.keyCode == 13) $("#signin").click();
+    });
+}
 
+
+/* #############################################################################
+ * Kick it all off
+ * ###########################################################################*/
+pageSetup();
 checkSignedIn();
+// #############################################################################

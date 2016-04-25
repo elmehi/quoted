@@ -1,3 +1,4 @@
+// Passes the toggle message down to the content script
 function handleTogglePress(command) {
     // Check to see if we have a logged in user
     chrome.storage.sync.get('USER', function (obj) {
@@ -27,6 +28,7 @@ function handleTogglePress(command) {
 // This is fired when we get a key combination
 chrome.commands.onCommand.addListener(handleTogglePress);
 
+// Listen for messages from either the content script or the popup
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     console.log(request);
     console.log(request.task);

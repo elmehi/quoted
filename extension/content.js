@@ -32,15 +32,17 @@ var MIN_CHARS = 8;
 var MIN_WORDS = 4;
 var MIN_LONGEST_WORD_LENGTH = MIN_CHARS;
 // #############################################################################
-
-var quotes_highlighted = false;
 var quote_ids;
 // #############################################################################
 
-// let the background script know we want to set the badge text
+/*******************************************************************************
+ * HELPER FUNCTIONS
+ ******************************************************************************/
+
+/*
+ * Let the background script know we want to set the badge text
+ */
 function updateBadgeWithCount(count) {
-    console.log("updating badge with count");
-    console.log(count);
     var text;
     if (count == -1) {
         text = '';
@@ -50,11 +52,66 @@ function updateBadgeWithCount(count) {
     chrome.runtime.sendMessage({task: "badgeUpdate", 'text': text}, function(response) {});
 }
 
-// A valid quote:
-// **MUST** be at least MIN_CHARS characters long
-// **MUST** have either:
-//  a word at least MIN_LONGEST_WORD_LENGTH characters long
-//  at least MIN_WORDS words
+/* 
+ * Builds a test JSON response.
+ */
+function testResponse(quote) {
+    var test_response = '{' +
+    '"domain": "http://www.example-website.com", ' +
+    '"url": "http://www.google.com/", ' +
+    '"title": "Test Article", ' + 
+    '"name": "Test Source", ' +
+    '"date": "January 16, 2016 1:30 EST", ' + 
+    '"quote": "' + quote + '"' +
+    '}';
+    
+    return test_response;
+}
+
+/*
+ * Helper function to retrieve the current domain and correct for local files (_)
+ */
+function currentDomain() {
+    var domain = window.location.hostname;
+    if (domain.length == 0) {
+        return '_';
+    } else {
+        return domain;
+    }
+}
+
+/*
+ * Sanitize a string for a URL.
+ */
+function replaceWordChars(text) {
+    var s = text;
+    // smart single quotes and apostrophe
+    s = s.replace(/[\u2018\u2019\u201A]/g, "\'");
+    // smart double quotes
+    s = s.replace(/[\u201C\u201D\u201E]/g, "\"");
+    // ellipsis
+    s = s.replace(/\u2026/g, "...");
+    // dashes
+    s = s.replace(/[\u2013\u2014]/g, "-");
+    // circumflex
+    s = s.replace(/\u02C6/g, "^");
+    // open angle bracket
+    s = s.replace(/\u2039/g, "<");
+    // close angle bracket
+    s = s.replace(/\u203A/g, ">");
+    // spaces
+    s = s.replace(/[\u02DC\u00A0]/g, " ");
+    
+    return s;
+}
+
+/*
+ * A valid quote:
+ * **MUST** be at least MIN_CHARS characters long
+ * **MUST** have either:
+ *  a word at least MIN_LONGEST_WORD_LENGTH characters long
+ *  at least MIN_WORDS words
+ */
 function quoteValid(quote) {
     var valid_quote = false;
     
@@ -74,6 +131,37 @@ function quoteValid(quote) {
     return valid_quote;
 }
 
+/*
+ * Helper function to perform XMLHTTPRequests.
+ */
+function xhttprequest(URL, username, success) {
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function (e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log(xhr.responseText);
+                success(xhr);
+            } else {
+                console.log("Non-200 status", xhr.status);
+            }
+        }
+    };
+    xhr.onerror = function (e) {
+        console.error(xhr.statusText);
+    };
+    xhr.open("GET", URL, true);
+    xhr.setRequestHeader("Authorization", btoa(username));
+    xhr.send(null);
+}
+
+/*******************************************************************************
+ * THE MEAT OF THE SCRIPT
+ ******************************************************************************/
+
+/*
+ * <EXPERIMENTAL FUNCTION CURRENTLY UNDER DEVELOPMENT>
+ * Extract only the interesting text from the current page.
+ */
 function extractText() {
     var article_pieces = [];
     $("body").find("div").contents().each(function(i, el) {
@@ -93,6 +181,10 @@ function extractText() {
     return article;
 }
 
+/*
+ * Extract the quotes from the webpage and build a reference dictionary so that
+ * we can update the data for each one when the user mouses over.
+ */
 function extractQuotes() {
     quote_ids = {};
     var id = 0;
@@ -128,15 +220,16 @@ function extractQuotes() {
         if ($(el).text() !== replaced) {
             $(el).replaceWith(replaced);
         }
-    })
-    
-    console.log(quote_ids);
+    });
     
     updateBadgeWithCount(Object.keys(quote_ids).length);
 }
 
-function reload(response) {
-    console.log(response);
+/*
+ * When we received a JSON response for a quote lookup, stick the data in the
+ * tags.
+ */
+function reloadQuoteWithJSONResponse(response) {
     var quote = response['quote'];
     var id_string = "[id=" + quote_ids[quote] + "]";
     var block = $(id_string);
@@ -168,17 +261,9 @@ function reload(response) {
     });
 }
 
-function domainFromURL(url) {
-    var domain;
-    if (url.indexOf('://') == -1) {
-        domain = url.split('/')[0];
-    } else {
-        domain = url.split('/')[2];
-    }
-    
-    return domain;
-}
-
+/*
+ * Unhighlight all quotes on the page.
+ */
 function unhighlightQuotes() {
     $(".tooltip").contents().unwrap();
     $(".quote").contents().unwrap();
@@ -186,230 +271,101 @@ function unhighlightQuotes() {
     updateBadgeWithCount(-1);
 }
 
-function highlightQuotes(username) {
-    $(".quote").hover(
+/*
+ * Prepare quotes to be moused over and load their data.
+ */
+function prepareQuotes(username) {
+    $(".quote").mouseover(
         function(e) {
-            if (e.type === "mouseenter" && !this.working) {
+            if (e.type === "mouseover" && !this.working) {
                 this.working = true;
                 var quote = e.currentTarget.outerText;
                 quote = quote.substring(1, quote.length - 1);
-                var test_response = '{' +
-                '"domain": "http://www.example-website.com", ' +
-                '"url": "http://www.google.com/", ' +
-                '"title": "Test Article", ' + 
-                '"name": "Test Source", ' +
-                '"date": "January 16, 2016 1:30 EST", ' + 
-                '"quote": "' + quote + '"' +
-                '}';
                 
-                var xhr = new XMLHttpRequest();
                 var URL = "https://quotedserver.herokuapp.com/lookup/__/results/";
                 URL = URL.replace('__', encodeURIComponent(replaceWordChars(quote)));
-                console.log(replaceWordChars(quote));
-                console.log(URL);
-                xhr.onreadystatechange = function (e) {
-                    if (xhr.readyState === 4) {
-                        if (xhr.status === 200) {
-                            console.log(xhr.responseText);
-                            var JSON_object = JSON.parse(xhr.responseText);
-                            if (!('date' in JSON_object)) {
-                                JSON_object['date'] = xhr.getResponseHeader('Date');
-                            }
-                            reload(JSON_object);
-                        } else {
-                            console.log("Non-200 status", xhr.status);
-                            reload(JSON.parse(test_response));
-                        }
+                xhttprequest(URL, username, function(xhr) {
+                    var JSON_object = JSON.parse(xhr.responseText);
+                    if (!('date' in JSON_object)) {
+                        JSON_object['date'] = xhr.getResponseHeader('Date');
                     }
-                    this.working = false;
-                };
-                xhr.onerror = function (e) {
-                    console.log("THIS IS AN ERROR:");
-                    console.error(xhr.statusText);
-                    console.log(xhr.statusText);
-                    reload(JSON.parse(test_response));
-                    this.working = false;
-                };
-                xhr.open("GET", URL, true);
-                xhr.setRequestHeader("Authorization", btoa(username));
-                xhr.send(null);
+                    reloadQuoteWithJSONResponse(JSON_object);
+                });
             }
         }
     )
 }
 
-function highlightIfNeeded(domains, domain, username) {
-    console.log(domains, domain, username);
-    if (domains.indexOf(domain) === -1 && domain.length) {
-        unhighlightQuotes();
-    } else {
-        extractQuotes();
-        highlightQuotes(username);
-    }
-}
-
-function currentDomain() {
-    var domain = window.location.hostname;
-    if (domain.length == 0) {
-        return '_';
-    } else {
-        return domain;
-    }
-}
-
-function domainRequestWithURL(URL, username) {
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function (e) {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                console.log('VALID DOMAINS:');
-                console.log(xhr.responseText);
-                var valid_domains = JSON.parse(xhr.responseText);
-                highlightIfNeeded(valid_domains, currentDomain(), username);
-            } else {
-                console.log("Non-200 status", xhr.status);
-            }
-        }
-        this.working = false;
-    };
-    xhr.onerror = function (e) {
-        console.log("THIS IS AN ERROR:");
-        console.error(xhr.statusText);
-        console.log(xhr.statusText);
-        this.working = false;
-    };
-    xhr.open("GET", URL, true);
-    xhr.setRequestHeader("Authorization", btoa(username));
-    xhr.send(null);
-}
-
+/*
+ * Get the user's valid domains and highlight quotes only if the current domain
+ * is on the list.
+ */
 function highlightFromValidDomains(username) {
     var URL = "https://quotedserver.herokuapp.com/lookup/getvaliddomains/";
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function (e) {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                console.log('VALID DOMAINS:');
-                console.log(xhr.responseText);
-                var valid_domains = JSON.parse(xhr.responseText);
-                highlightIfNeeded(valid_domains, currentDomain(), username);
-            } else {
-                console.log("Non-200 status", xhr.status);
-            }
+    xhttprequest(URL, username, function(xhr) {
+        var domains = JSON.parse(xhr.responseText);
+        var domain = currentDomain();
+        if (domains.indexOf(domain) === -1 && domain.length) {
+            unhighlightQuotes();
+        } else {
+            extractQuotes();
+            prepareQuotes(username);
         }
-        this.working = false;
-    };
-    xhr.onerror = function (e) {
-        console.log("THIS IS AN ERROR:");
-        console.error(xhr.statusText);
-        console.log(xhr.statusText);
-        this.working = false;
-    };
-    xhr.open("GET", URL, true);
-    xhr.setRequestHeader("Authorization", btoa(username));
-    xhr.send(null);
+    });
 }
 
+/*
+ * Flip a domain on or off for the current user.
+ */
 function toggleDomain(username) {
     var URL = "https://quotedserver.herokuapp.com/lookup/toggledomain/__/";
     URL = URL.replace('__', btoa(currentDomain()));
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function (e) {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                console.log('VALID DOMAINS:');
-                console.log(xhr.responseText);
-                
-                requestHighlightingState(username);
-            } else {
-                console.log("Non-200 status", xhr.status);
-            }
-        }
-        this.working = false;
-    };
-    xhr.onerror = function (e) {
-        console.log("THIS IS AN ERROR:");
-        console.error(xhr.statusText);
-        console.log(xhr.statusText);
-        this.working = false;
-    };
-    xhr.open("GET", URL, true);
-    xhr.setRequestHeader("Authorization", btoa(username));
-    xhr.send(null);
+    xhttprequest(URL, username, function(xhr) {
+        requestHighlightingState(username);
+    });
 }
 
+/*
+ * Kick everything off by figuring out who the current user is.
+ */
 function requestUsername() {
     // expects a response from the background script with task='usernamerequest'
     chrome.runtime.sendMessage({task: "getUser"}, function(response) {});
 }
 
+/*
+ * Request heroku to give us the user's current highlighting state
+ * State will be one of:
+ * - none (0)
+ * - whitelist (1)
+ * - all (2)
+ */
 function requestHighlightingState(username) {
     var xhr = new XMLHttpRequest();
     var URL = "https://quotedserver.herokuapp.com/lookup/gethighlightedstate/";
-    xhr.onreadystatechange = function (e) {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                console.log("Highlighting state:");
-                console.log(xhr.responseText);
-                unhighlightQuotes();
-                
-                if (xhr.responseText === '0') {
-                    // all quote highlighting disabled
-                } else if (xhr.responseText === '1') {
-                    // quote highlighting enabled only for whitelist
-                    highlightFromValidDomains(username);
-                } else if (xhr.responseText === '2') {
-                    // quote highlighting enabled for all domains
-                    extractQuotes();
-                    highlightQuotes(username);
-                } else {
-                    console.log("BAD");
-                    console.log(xhr.responseText);
-                }
-            } else {
-                console.log("Non-200 status", xhr.status);
-            }
+    xhttprequest(URL, username, function(xhr) {
+        unhighlightQuotes();
+        
+        if (xhr.responseText === '0') {
+            // all quote highlighting disabled
+        } else if (xhr.responseText === '1') {
+            // quote highlighting enabled only for whitelist
+            highlightFromValidDomains(username);
+        } else if (xhr.responseText === '2') {
+            // quote highlighting enabled for all domains
+            extractQuotes();
+            prepareQuotes(username);
         }
-        this.working = false;
-    };
-    xhr.onerror = function (e) {
-        console.log("THIS IS AN ERROR:");
-        console.error(xhr.statusText);
-        console.log(xhr.statusText);
-        this.working = false;
-    };
-    xhr.open("GET", URL, true);
-    xhr.setRequestHeader("Authorization", btoa(username));
-    xhr.send(null);
+    });
 }
 
-function replaceWordChars(text) {
-    var s = text;
-    // smart single quotes and apostrophe
-    s = s.replace(/[\u2018\u2019\u201A]/g, "\'");
-    // smart double quotes
-    s = s.replace(/[\u201C\u201D\u201E]/g, "\"");
-    // ellipsis
-    s = s.replace(/\u2026/g, "...");
-    // dashes
-    s = s.replace(/[\u2013\u2014]/g, "-");
-    // circumflex
-    s = s.replace(/\u02C6/g, "^");
-    // open angle bracket
-    s = s.replace(/\u2039/g, "<");
-    // close angle bracket
-    s = s.replace(/\u203A/g, ">");
-    // spaces
-    s = s.replace(/[\u02DC\u00A0]/g, " ");
-    
-    return s;
-}
-
+/*
+ * We want to listen for messages back from the background script about the user.
+ */
 chrome.runtime.onMessage.addListener(
     function(request, sender, sendResponse) {
         var task = request.task;
-        console.log("MESSAGE FROM BACKGROUND SCRIPT:");
-        console.log(request.task);
+        console.log(request);
         
         if (task === 'toggle') {
             toggleDomain(request.user);
@@ -423,8 +379,12 @@ chrome.runtime.onMessage.addListener(
     }
 );
 
-// #############################################################################
-// THIS IS THE ONLY THING THAT HAPPENS EVERY TIME
-// #############################################################################
+/* #############################################################################
+ * The control flow is something like this:
+ * - request username -> get response from background script with user info
+ * - request highlighting status (are we doing any highlighting at all, or are
+ *   we highlighting just domains on a whitelist?) from heroku
+ * - depending on the user's highlighting state, refresh the status of the page
+ * ###########################################################################*/
 requestUsername();
 // #############################################################################
