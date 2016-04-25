@@ -37,6 +37,11 @@ var quotes_highlighted = false;
 var quote_ids;
 // #############################################################################
 
+// let the background script know we want to set the badge text
+function updateBadgeWithCount(count) {
+    chrome.runtime.sendMessage({task: "badgeUpdate", text: String(count)}, function(response) {});
+}
+
 // A valid quote:
 // **MUST** be at least MIN_CHARS characters long
 // **MUST** have either:
@@ -115,6 +120,8 @@ function extractQuotes() {
             $(el).replaceWith(replaced);
         }
     })
+    
+    updateBadgeWithCount(Object.keys(quote_ids).length);
 }
 
 function reload(response) {
@@ -165,7 +172,7 @@ function unhighlightQuotes() {
     $(".quote").contents().unwrap();
 }
 
-function highlightQuotes() {
+function highlightQuotes(username) {
     $(".quote").hover(
         function(e) {
             if (e.type === "mouseenter" && !this.working) {
@@ -210,18 +217,19 @@ function highlightQuotes() {
                     this.working = false;
                 };
                 xhr.open("GET", URL, true);
+                xhr.setRequestHeader("Authorization", btoa(username));
                 xhr.send(null);
             }
         }
     )
 }
 
-function highlightIfNeeded(domains, domain) {
+function highlightIfNeeded(domains, domain, username) {
     if (domains.indexOf(domain) === -1 && domain.length) {
         unhighlightQuotes();
     } else {
         extractQuotes();
-        highlightQuotes();
+        highlightQuotes(username);
     }
 }
 
@@ -242,7 +250,7 @@ function domainRequestWithURL(URL, username) {
                 console.log('VALID DOMAINS:');
                 console.log(xhr.responseText);
                 var valid_domains = JSON.parse(xhr.responseText);
-                highlightIfNeeded(valid_domains, currentDomain());
+                highlightIfNeeded(valid_domains, currentDomain(), username);
             } else {
                 console.log("Non-200 status", xhr.status);
             }
@@ -272,6 +280,7 @@ function toggleDomain(username) {
 }
 
 function requestUsername() {
+    // expects a response from the background script with task='usernamerequest'
     chrome.runtime.sendMessage({task: "getUser"}, function(response) {});
 }
 
@@ -279,7 +288,7 @@ chrome.runtime.onMessage.addListener(
     function(request, sender, sendResponse) {
         var task = request.task;
         console.log("MESSAGE FROM BACKGROUND SCRIPT:");
-        console.log(request);
+        console.log(request.task);
         
         if (task === 'toggle') {
             toggleDomain(request.user);
@@ -288,7 +297,7 @@ chrome.runtime.onMessage.addListener(
         } else if (task === 'usernamerequest' || task === 'signin') {
             highlightFromValidDomains(request.user);
         } else if (task === 'nouser') {
-            
+            console.log("NO LOGGED IN USER!!");
         }
     }
 );

@@ -142,15 +142,112 @@ function checkSignedIn() {
     });
 }
 
+// http://jsfiddle.net/gh/get/jquery/1.9.1/highslide-software/highcharts.com/tree/master/samples/highcharts/demo/pie-monochrome/
+function generateHighchart() {
+    // Build the chart
+    document.getElementById("container").style.display = 'inline';
+    document.getElementById("hidehistory").style.display = 'inline';
+    document.getElementById("history").style.display = 'none';
+    $('#container').highcharts({
+        chart: {
+            plotBackgroundColor: null,
+            plotBorderWidth: null,
+            plotShadow: false,
+            type: 'pie'
+        },
+        title: {
+            text: 'Quote Lookup History'
+        },
+        tooltip: {
+            pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
+        },
+        plotOptions: {
+            pie: {
+                allowPointSelect: true,
+                cursor: 'pointer',
+                dataLabels: {
+                    enabled: false
+                },
+                showInLegend: true
+            }
+        },
+        series: [{
+            name: 'Brands',
+            colorByPoint: true,
+            data: [{
+                name: 'Microsoft Internet Explorer',
+                y: 56.33
+            }, {
+                name: 'Chrome',
+                y: 24.03,
+                sliced: true,
+                selected: true
+            }, {
+                name: 'Firefox',
+                y: 10.38
+            }, {
+                name: 'Safari',
+                y: 4.77
+            }, {
+                name: 'Opera',
+                y: 0.91
+            }, {
+                name: 'Proprietary or Undetectable',
+                y: 0.2
+            }]
+        }]
+    });
+    
+}
+
+function showHistoryGraph() {
+    // request history from heroku
+    var xhr = new XMLHttpRequest();
+    var URL = "https://quotedserver.herokuapp.com/lookup/gethistory";
+    xhr.onreadystatechange = function (e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log(xhr.responseText);
+                
+                // var html = generateHTML();
+                // var newWindow = window.open("", "History","width=300,height=300,scrollbars=1,resizable=1");
+                // newWindow.document.write(html);
+            } else {
+                console.log("Non-200 status", xhr.status);
+            }
+        }
+    };
+    
+    xhr.onerror = function (e) {
+        console.log("HISTORY ERROR:");
+        console.log(xhr.statusText);
+    };
+    
+    chrome.storage.sync.get("USER", function (obj) {
+        var user = obj['USER'];
+        if ('username' in user) {
+            xhr.open("GET", URL, true);
+            xhr.setRequestHeader("Authorization", btoa(user['username']));
+            xhr.send(null);
+        }
+    });
+}
+
+function hideHistoryGraph() {
+    document.getElementById("container").style.display = 'none';
+    document.getElementById("hidehistory").style.display = 'none';
+    document.getElementById("history").style.display = 'inline';
+}
+
+document.getElementById("history").onclick = showHistoryGraph;
+document.getElementById("hidehistory").onclick = hideHistoryGraph;
 document.getElementById("signinout").onclick = signIn;
 document.getElementById("signup").onclick = signUp;
+document.getElementById("container").style.display = 'none';
+document.getElementById("hidehistory").style.display = 'none';
 
 // http://stackoverflow.com/questions/155188/trigger-a-button-click-with-javascript-on-the-enter-key-in-a-text-box
-$("#password").keyup(function(event) {
-    if(event.keyCode == 13) $("#signinout").click();
-});
-
-$("#username").keyup(function(event) {
+$("#password,#username").keyup(function(event) {
     if(event.keyCode == 13) $("#signinout").click();
 });
 

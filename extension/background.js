@@ -47,16 +47,15 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
                     chrome.tabs.query({active: true}, function(tabs) {
                         chrome.tabs.sendMessage(tabs[0].id, {'task':'nouser'}, function() {});
                     });
-                    console.log("No logged in user:");
-                    console.log(obj);
                 }
             } else {
                 chrome.tabs.query({active: true}, function(tabs) {
                     chrome.tabs.sendMessage(tabs[0].id, {'task':'nouser'}, function() {});
                 });
-                console.log("No logged in user:");
-                console.log(obj);
             }
         });
+    } else if (request.task == 'badgeUpdate') {
+        var info = {'text': request.text, 'tabId': sender.tab.id};
+        chrome.browserAction.setBadgeText(info);
     }
 });
