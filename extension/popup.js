@@ -56,12 +56,11 @@ function signUp() {
 }
 
 function signIn() {
-    console.log('sign in');
-    sendMessageToContentJS({message:'signing in'}, function(){});
-    
     var user = document.getElementById('username').value;
     var pass = document.getElementById('password').value;
     var auth_token = 'a_random_string';
+    
+    document.getElementById("password").value = "";
     
     // Record that we've started an authentication request
     var xhr = new XMLHttpRequest();
@@ -80,11 +79,11 @@ function signIn() {
                 } else {
                     // BAD AUTHENTICATION
                     console.log("Authentication ERROR");
-                    $('#title').text(BAD_AUTH_MESSAGE);
+                    $('#signedoutmessage').text(BAD_AUTH_MESSAGE);
                 }
             } else {
                 console.log("Non-200 status on auth", xhr.status);
-                $('#title').text(UNKNOWN_ERROR);
+                $('#signedoutmessage').text(UNKNOWN_ERROR);
             }
         }
         this.working = false;
@@ -111,24 +110,99 @@ function signOut() {
 }
 
 function updateUIForSignedOut() {
-    document.getElementById("signinout").onclick = signIn;
-    $('#signinout').text('Sign In');
-    $('#title').text(SIGN_IN_MESSAGE);
-    document.getElementById("signup").style.display = "";
-    document.getElementById("username").style.display = "";
-    document.getElementById("password").style.display = "";
+    $('#signedoutmessage').text(SIGN_IN_MESSAGE);
+    
+    document.getElementById("signedin").style.display = "none";
+    document.getElementById("signedout").style.display = "inline";
+}
+
+function updateSliderForHighlightingState(state) {
+    console.log(state);
+    document.getElementById("highlightstate").value = parseInt(state);
+    switch (state) {
+        case 0:
+            $('#highlightstatetext').text('Quote highlighting disabled for all domains.');
+            document.getElementById("domains").disabled = true;
+            document.getElementById("removedomains").disabled = true;
+            document.getElementById("domains").style.opacity = .4;
+            document.getElementById("removedomains").style.opacity = .4;
+            break;
+        case 1:
+            $('#highlightstatetext').text('Quote highlighting enabled only on the following domains:');
+            document.getElementById("domains").disabled = '';
+            document.getElementById("removedomains").disabled = '';
+            document.getElementById("domains").style.opacity = 1;
+            document.getElementById("removedomains").style.opacity = 1;
+            break;
+        case 2:
+            $('#highlightstatetext').text('Quote highlighting enabled on all domains.');
+            document.getElementById("domains").disabled = true;
+            document.getElementById("removedomains").disabled = true;
+            document.getElementById("domains").style.opacity = .4;
+            document.getElementById("removedomains").style.opacity = .4;
+            break;
+    }
+}
+
+function saveNewHighlightingState(state, username) {
+    var xhr = new XMLHttpRequest();
+    var URL = "https://quotedserver.herokuapp.com/lookup/sethighlightedstate/" + state + '/';
+    xhr.onreadystatechange = function (e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log('saved new state:');
+                console.log(state);
+                sendMessageToContentJS({'task':'signin', 'user':username});
+            }
+        }
+        this.working = false;
+    };
+    xhr.onerror = function (e) {
+        console.log("THIS IS AN ERROR:");
+        console.error(xhr.statusText);
+        console.log(xhr.statusText);
+    };
+    xhr.open("GET", URL, true);
+    xhr.setRequestHeader("Authorization", btoa(username));
+    xhr.send(null);
+}
+
+function requestHighlightingState(username) {
+    console.log('requesting highlighting state');
+    var xhr = new XMLHttpRequest();
+    var URL = "https://quotedserver.herokuapp.com/lookup/gethighlightedstate/";
+    xhr.onreadystatechange = function (e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log("HIGHLIGHTINGSTATE");
+                console.log(xhr.responseText);
+                updateSliderForHighlightingState(parseInt(xhr.responseText));
+            } else {
+                console.log("Non-200 status", xhr.status);
+            }
+        }
+    };
+    xhr.onerror = function (e) {
+        console.log("THIS IS AN ERROR:");
+        console.error(xhr.statusText);
+        console.log(xhr.statusText);
+    };
+    xhr.open("GET", URL, true);
+    xhr.setRequestHeader("Authorization", btoa(username));
+    xhr.send(null);
 }
 
 function updateUIForSignedIn(username) {
-    $('#title').html('Signed in as <b>' + username + '</b>');
-    $('#signinout').text('Sign Out');
+    $('#signedinmessage').text('Signed in as ' + username);
     
-    document.getElementById("signup").style.display = "none";
-    document.getElementById("username").style.display = "none";
-    document.getElementById("password").style.display = "none";
-    document.getElementById("password").value = "";
+    document.getElementById("signedin").style.display = "inline";
+    document.getElementById("signedout").style.display = "none";
     
-    document.getElementById("signinout").onclick = signOut;
+    setTimeout(function() { 
+        showHistoryGraph(); 
+        populateDomainSelectField();
+        requestHighlightingState(username);
+    }, 50);
 }
 
 function checkSignedIn() {
@@ -143,11 +217,8 @@ function checkSignedIn() {
 }
 
 // http://jsfiddle.net/gh/get/jquery/1.9.1/highslide-software/highcharts.com/tree/master/samples/highcharts/demo/pie-monochrome/
-function generateHighchart() {
+function generateHighchart(d) {
     // Build the chart
-    document.getElementById("container").style.display = 'inline';
-    document.getElementById("hidehistory").style.display = 'inline';
-    document.getElementById("history").style.display = 'none';
     $('#container').highcharts({
         chart: {
             plotBackgroundColor: null,
@@ -156,10 +227,10 @@ function generateHighchart() {
             type: 'pie'
         },
         title: {
-            text: 'Quote Lookup History'
+            text: ''
         },
         tooltip: {
-            pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
+            pointFormat: '{series.name}: <b>{point.y}</b>'
         },
         plotOptions: {
             pie: {
@@ -168,36 +239,26 @@ function generateHighchart() {
                 dataLabels: {
                     enabled: false
                 },
-                showInLegend: true
+                showInLegend: false
             }
         },
         series: [{
-            name: 'Brands',
+            name: 'Quotes',
             colorByPoint: true,
-            data: [{
-                name: 'Microsoft Internet Explorer',
-                y: 56.33
-            }, {
-                name: 'Chrome',
-                y: 24.03,
-                sliced: true,
-                selected: true
-            }, {
-                name: 'Firefox',
-                y: 10.38
-            }, {
-                name: 'Safari',
-                y: 4.77
-            }, {
-                name: 'Opera',
-                y: 0.91
-            }, {
-                name: 'Proprietary or Undetectable',
-                y: 0.2
-            }]
+            data:d
         }]
     });
+}
+
+function domainFromURL(url) {
+    var domain;
+    if (url.indexOf('://') == -1) {
+        domain = url.split('/')[0];
+    } else {
+        domain = url.split('/')[2];
+    }
     
+    return domain;
 }
 
 function showHistoryGraph() {
@@ -208,10 +269,36 @@ function showHistoryGraph() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
                 console.log(xhr.responseText);
-                
-                // var html = generateHTML();
-                // var newWindow = window.open("", "History","width=300,height=300,scrollbars=1,resizable=1");
-                // newWindow.document.write(html);
+                var responseData = JSON.parse(xhr.responseText);
+                console.log(responseData);
+                console.log(responseData.length);
+                if (responseData.length > 0) {
+                    var data = {};
+                    for (var idx = 0; idx < responseData.length; idx++) {
+                        var domain = domainFromURL(responseData[idx].url);
+                        
+                        if (domain in data) {
+                            data[domain] = data[domain] + 1;
+                        } else {
+                            data[domain] = 1;
+                        }
+                    }
+                    
+                    console.log(data);
+                    
+                    var highchartsData = [];
+                    for (var key in data) {
+                        highchartsData.push({'name':key, 'y':data[key]})
+                    }
+                    
+                    generateHighchart(highchartsData);
+                    
+                    document.getElementById("container").style.display = 'block';
+                    document.getElementById("norequests").style.display = 'none';
+                } else {
+                    document.getElementById("container").style.display = 'none';
+                    document.getElementById("norequests").style.display = 'block';
+                }
             } else {
                 console.log("Non-200 status", xhr.status);
             }
@@ -233,22 +320,111 @@ function showHistoryGraph() {
     });
 }
 
-function hideHistoryGraph() {
-    document.getElementById("container").style.display = 'none';
-    document.getElementById("hidehistory").style.display = 'none';
-    document.getElementById("history").style.display = 'inline';
+function disableSelectedDomains() {
+    var select = document.getElementById("domains");
+    var selected = [];
+    var username;
+    for (var idx = 0; idx < select.length; idx++) {
+        if (select.options[idx].selected) {
+            var URL = "https://quotedserver.herokuapp.com/lookup/toggledomain/";
+            URL += btoa(select.options[idx].text) + '/';
+            var xhr = new XMLHttpRequest();
+            
+            xhr.onreadystatechange = function (e) {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        sendMessageToContentJS({'task':'signin', 'user':username});
+                    }
+                }
+            };
+            
+            xhr.onerror = function (e) {
+                console.log("THIS IS AN ERROR:");
+                console.error(xhr.statusText);
+                console.log(xhr.statusText);
+            };
+            
+            select.remove(idx);
+            idx--;
+            
+            chrome.storage.sync.get("USER", function (obj) {
+                var user = obj['USER'];
+                if ('username' in user) {
+                    username = user['username'];
+                    xhr.open("GET", URL, true);
+                    xhr.setRequestHeader("Authorization", btoa(user['username']));
+                    xhr.send(null);
+                }
+            });
+        }
+    }
 }
 
-document.getElementById("history").onclick = showHistoryGraph;
-document.getElementById("hidehistory").onclick = hideHistoryGraph;
-document.getElementById("signinout").onclick = signIn;
+function populateDomainSelectField() {
+    var URL = "https://quotedserver.herokuapp.com/lookup/getvaliddomains/";
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function (e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log('VALID DOMAINS:');
+                console.log(xhr.responseText);
+                var valid_domains = JSON.parse(xhr.responseText);
+                var list = document.getElementById("domains");
+                // clear the list
+                while (list.options.length > 0) {
+                    list.remove(0);
+                }
+                
+                // populate with valid domains
+                for (d in valid_domains) {
+                    if (valid_domains[d].length > 1) {
+                        var option = document.createElement("option");
+                        option.text = valid_domains[d];
+                        list.add(option);
+                    }
+                }
+            } else {
+                console.log("Non-200 status", xhr.status);
+            }
+        }
+        this.working = false;
+    };
+    xhr.onerror = function (e) {
+        console.log("THIS IS AN ERROR:");
+        console.error(xhr.statusText);
+        console.log(xhr.statusText);
+        this.working = false;
+    };
+    
+    chrome.storage.sync.get("USER", function (obj) {
+        var user = obj['USER'];
+        if ('username' in user) {
+            xhr.open("GET", URL, true);
+            xhr.setRequestHeader("Authorization", btoa(user['username']));
+            xhr.send(null);
+        }
+    });
+}
+
+document.getElementById("signin").onclick = signIn;
+document.getElementById("signout").onclick = signOut;
 document.getElementById("signup").onclick = signUp;
-document.getElementById("container").style.display = 'none';
-document.getElementById("hidehistory").style.display = 'none';
+document.getElementById("removedomains").onclick = disableSelectedDomains;
+
+$('#highlightstate').change(function(event) {
+    var state = parseInt($(event.target).val());
+    updateSliderForHighlightingState(state);
+    chrome.storage.sync.get("USER", function (obj) {
+        var user = obj['USER'];
+        if ('username' in user) {
+            saveNewHighlightingState(state, user['username']);
+        }
+    });
+});
 
 // http://stackoverflow.com/questions/155188/trigger-a-button-click-with-javascript-on-the-enter-key-in-a-text-box
 $("#password,#username").keyup(function(event) {
-    if(event.keyCode == 13) $("#signinout").click();
+    if(event.keyCode == 13) $("#signin").click();
 });
 
 checkSignedIn();

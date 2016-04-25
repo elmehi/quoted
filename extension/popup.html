@@ -3,18 +3,42 @@
 <head>
     <script type="text/javascript" src="jquery-2.2.2.min.js"></script>
     <script src="highcharts.js"></script>
+    <style>
+    html {
+        position: relative;
+        min-width: 200px;
+    }
+    </style>
 </head>
 <body>
-    <h2>Quoted</h2>
-    <p><span style="white-space: nowrap;" id="title"></span></p>
-    <input type="text" id="username" value="" placeholder="Username" size="18" maxlength="20" />
-    <input type="password" id="password" value="" placeholder="Password" size="18" maxlength="20"/>
-    <p></p>
-    <button id="history">Quote History</button>
-    <button id="hidehistory">Hide History</button>
-    <button id="signinout">Sign In</button>
-    <button id="signup" style="float: right;">Sign Up</button>
-    <div id="container" style="min-width: 310px; height: 300px; max-width: 300px; margin: 0 auto"></div>
+    <h1 style="text-align: center;">Quoted</h1>
+    <hr>
+    <div id="signedin">
+        <h3 style="white-space: nowrap; text-align: center;">Quote Highlighting</h3>
+        <div style="float: left; width: 33.3%; text-align: left;">None</div>
+        <div style="float: left; width: 34.3%; text-align: center;">Some</div>
+        <div style="float: left; width: 32.3%; text-align: right;">All</div>
+        <input type="range" id="highlightstate" style="float: left; width: 100%; margin-bottom:4px;" min="0" max="2" step="1" value="0" />
+        <span id="highlightstatetext">Quote highlighting disabled.</span>
+        <select id="domains" size="4" disabled style="width: 80%; margin-top:4px; display: block; margin-left: auto; margin-right: auto;" multiple></select>
+        <button disabled style="margin:4px; display: block; margin-left: auto; margin-right: auto;" id="removedomains">Disable Selected</button>
+        <hr>
+        <h3 id="graphtitle" style="text-align: center;">Quote Lookup History</h3>
+        <div id="container" style="height: 210px; width: 250px; margin: 0 auto"></div>
+        <h4 id="norequests" style="text-align: center; display: none;">You haven't looked up any quotes yet.</h4>
+        <hr>
+        <h3 style="text-align: center;" id="signedinmessage"></h3>
+        <button id="signout" style="margin: auto; display: block;">Sign Out</button>
+    </div>
+    <div id="signedout">
+        <h3 style="text-align: center;" id="signedoutmessage"></h3>
+        <input type="text" id="username" value="" placeholder="Username" size="20" style="display: block; margin: auto;"/>
+        <input type="password" id="password" value="" placeholder="Password" size="20" style="display: block; margin: auto;"/>
+        <p style="text-align: center;">
+            <button id="signin" style="display: inline; margin-right:4px;">Sign In</button>
+            <button id="signup" style=" display: inline; margin-left:4px;">Sign Up</button>
+        </p>
+    </div>
     <script src="popup.js"></script>
 </body>
 </html>

@@ -39,7 +39,15 @@ var quote_ids;
 
 // let the background script know we want to set the badge text
 function updateBadgeWithCount(count) {
-    chrome.runtime.sendMessage({task: "badgeUpdate", text: String(count)}, function(response) {});
+    console.log("updating badge with count");
+    console.log(count);
+    var text;
+    if (count == -1) {
+        text = '';
+    } else {
+        text = String(count);
+    }
+    chrome.runtime.sendMessage({task: "badgeUpdate", 'text': text}, function(response) {});
 }
 
 // A valid quote:
@@ -122,6 +130,8 @@ function extractQuotes() {
         }
     })
     
+    console.log(quote_ids);
+    
     updateBadgeWithCount(Object.keys(quote_ids).length);
 }
 
@@ -171,6 +181,8 @@ function domainFromURL(url) {
 function unhighlightQuotes() {
     $(".tooltip").contents().unwrap();
     $(".quote").contents().unwrap();
+    
+    updateBadgeWithCount(-1);
 }
 
 function highlightQuotes(username) {
@@ -226,6 +238,7 @@ function highlightQuotes(username) {
 }
 
 function highlightIfNeeded(domains, domain, username) {
+    console.log(domains, domain, username);
     if (domains.indexOf(domain) === -1 && domain.length) {
         unhighlightQuotes();
     } else {
@@ -285,6 +298,42 @@ function requestUsername() {
     chrome.runtime.sendMessage({task: "getUser"}, function(response) {});
 }
 
+function requestHighlightingState(username) {
+    var xhr = new XMLHttpRequest();
+    var URL = "https://quotedserver.herokuapp.com/lookup/gethighlightedstate/";
+    xhr.onreadystatechange = function (e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log("Highlighting state:");
+                console.log(xhr.responseText);
+                unhighlightQuotes();
+                if (xhr.responseText === '0') {
+                    // do nothing
+                } else if (xhr.responseText === '1') {
+                    highlightFromValidDomains(username);
+                } else if (xhr.responseText === '2') {
+                    extractQuotes();
+                    highlightQuotes(username);
+                } else {
+                    console.log("BAD");
+                    console.log(xhr.responseText);
+                }
+            } else {
+                console.log("Non-200 status", xhr.status);
+            }
+        }
+        this.working = false;
+    };
+    xhr.onerror = function (e) {
+        console.log("THIS IS AN ERROR:");
+        console.error(xhr.statusText);
+        console.log(xhr.statusText);
+        this.working = false;
+    };
+    xhr.open("GET", URL, true);
+    xhr.setRequestHeader("Authorization", btoa(username));
+    xhr.send(null);
+}
 
 function replaceWordChars(text) {
     var s = text;
@@ -308,8 +357,6 @@ function replaceWordChars(text) {
     return s;
 }
 
-
-
 chrome.runtime.onMessage.addListener(
     function(request, sender, sendResponse) {
         var task = request.task;
@@ -321,7 +368,7 @@ chrome.runtime.onMessage.addListener(
         } else if (task === 'signout') {
             unhighlightQuotes();
         } else if (task === 'usernamerequest' || task === 'signin') {
-            highlightFromValidDomains(request.user);
+            requestHighlightingState(request.user);
         } else if (task === 'nouser') {
             console.log("NO LOGGED IN USER!!");
         }
