@@ -30,6 +30,10 @@ function xhttprequest(URL, username, success) {
                 success(xhr);
             } else {
                 console.log("Non-200 status", xhr.status);
+                if (xhr.status === 503) {
+                    document.getElementById('signedinmessage').innerHTML = 'Server uptime quota reached. Server sleeping.';
+                    document.getElementById('signedoutmessage').innerHTML = document.getElementById('signedinmessage').innerHTML;
+                }
             }
         }
     };
