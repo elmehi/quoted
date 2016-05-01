@@ -10,6 +10,23 @@ var UNKNOWN_ERROR = 'Request failed. Try Again.'
 /*********************************************************/
 
 /*
+ * Helper function to retrieve the current domain and correct for local files (_)
+ */
+function currentDomain() {
+    chrome.tabs.getCurrent(function(tab){
+        console.log(tab.url);
+    });
+    
+    // console.log("DOMAIN");
+    // console.log(domain);
+    // if (domain.length == 0) {
+    //     return '_';
+    // } else {
+    //     return domain;
+    // }
+}
+
+/*
  * Helper function to send a message (dict) to the content script.
  */
 function sendMessageToContentJS(message, callback) {
@@ -26,7 +43,7 @@ function xhttprequest(URL, username, success) {
     xhr.onreadystatechange = function (e) {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
-                console.log(xhr.responseText);
+                // console.log(xhr.responseText);
                 success(xhr);
             } else {
                 console.log("Non-200 status", xhr.status);
@@ -44,6 +61,15 @@ function xhttprequest(URL, username, success) {
     xhr.setRequestHeader("Authorization", btoa(username));
     xhr.send(null);
 }
+
+/*
+ * Helper function to clear elements from a list.
+ */
+ function clearList(list) {
+     while (list.options.length > 0) {
+         list.remove(0);
+     }
+ }
 
 /*
  * Sign up a new user to Quoted.
@@ -117,11 +143,29 @@ function updateUIForSignedOut() {
 /*
  * If the domain list has a domain selected, enable the remove domain button.
  */
-function enableRemoveButtonIfNecessary() {
+function enableRemoveButtonsIfNecessary() {
+    document.getElementById("removedomains").disabled = true;
+    document.getElementById("removetrustedsources").disabled = true;
+    document.getElementById("removeuntrustedsources").disabled = true;
+    
     var select = document.getElementById("domains");
     for (var idx = 0; idx < select.length; idx++) {
         if (select.options[idx].selected) {
             document.getElementById("removedomains").disabled = false;
+        }
+    }
+    
+    var trusted = document.getElementById("trustedsources");
+    for (var idx = 0; idx < trusted.length; idx++) {
+        if (trusted.options[idx].selected) {
+            document.getElementById("removetrustedsources").disabled = false;
+        }
+    }
+    
+    var untrusted = document.getElementById("untrustedsources");
+    for (var idx = 0; idx < untrusted.length; idx++) {
+        if (untrusted.options[idx].selected) {
+            document.getElementById("removeuntrustedsources").disabled = false;
         }
     }
 }
@@ -141,8 +185,7 @@ function disableDomainControls() {
 /*
  * Update UI to reflect a particular slider state.
  */
-function updateSliderForHighlightingState(state) {
-    console.log(state);
+function updateHighlightingStateUI(state) {
     document.getElementById("highlightstate").value = parseInt(state);
     switch (state) {
         case 0:
@@ -157,7 +200,7 @@ function updateSliderForHighlightingState(state) {
             document.getElementById("removedomains").style.opacity = 1;
             document.getElementById("togglecurrentdomain").style.opacity = 1;
             
-            enableRemoveButtonIfNecessary();
+            enableRemoveButtonsIfNecessary();
             break;
         case 2:
             $('#highlightstatetext').text('Quote highlighting enabled for all domains.');
@@ -176,10 +219,72 @@ function saveNewHighlightingState(state, username) {
     });
 }
 
+function updateTrustedSourcesUI(sources) {
+    var list = document.getElementById("trustedsources");
+    clearList(list);
+    
+    // populate with valid domains
+    for (s in sources) {
+        if (sources[s].length > 1) {
+            var option = document.createElement("option");
+            option.text = sources[s];
+            list.add(option);
+        }
+    }
+    
+    document.getElementById("removetrustedsources").disabled = true;
+}
+
+function updateUntrustedSourcesUI(sources) {
+    var list = document.getElementById("untrustedsources");
+    clearList(list);
+    
+    // populate with valid domains
+    for (s in sources) {
+        if (sources[s].length > 1) {
+            var option = document.createElement("option");
+            option.text = sources[s];
+            list.add(option);
+        }
+    }
+    
+    document.getElementById("removeuntrustedsources").disabled = true;
+}
+
+function updateEnabledDomainsUI(valid_domains) {
+    var list = document.getElementById("domains");
+    clearList(list);
+    
+    // populate with valid domains
+    for (d in valid_domains) {
+        if (valid_domains[d].length > 1) {
+            var option = document.createElement("option");
+            option.text = valid_domains[d];
+            list.add(option);
+        }
+    }
+    
+    document.getElementById("removedomains").disabled = true;
+}
+
 function requestHighlightingState(username) {
     var URL = "https://quotedserver.herokuapp.com/lookup/gethighlightedstate/";
     xhttprequest(URL, username, function(xhr) {
-        updateSliderForHighlightingState(parseInt(xhr.responseText));
+        updateHighlightingStateUI(parseInt(xhr.responseText));
+    });
+}
+
+function requestTrustedSources(username) {
+    var URL = "https://quotedserver.herokuapp.com/lookup/gettrustedsources/";
+    xhttprequest(URL, username, function(xhr) {
+        updateTrustedSourcesUI(JSON.parse(xhr.responseText));
+    });
+}
+
+function requestUntrustedSources(username) {
+    var URL = "https://quotedserver.herokuapp.com/lookup/getuntrustedsources/";
+    xhttprequest(URL, username, function(xhr) {
+        updateUntrustedSourcesUI(JSON.parse(xhr.responseText));
     });
 }
 
@@ -191,20 +296,10 @@ function updateUIForSignedIn(username) {
     
     setTimeout(function() { 
         showHistoryGraph(); 
-        populateDomainSelectField();
+        requestEnabledDomains();
         requestHighlightingState(username);
+        requestTrustedSources(username);
     }, 50);
-}
-
-function checkSignedIn() {
-    chrome.storage.sync.get("USER", function (obj) {
-        var user = obj['USER'];
-        if ('username' in user) {
-            updateUIForSignedIn(user['username']);
-        } else {
-            updateUIForSignedOut();
-        }
-    });
 }
 
 // http://jsfiddle.net/gh/get/jquery/1.9.1/highslide-software/highcharts.com/tree/master/samples/highcharts/demo/pie-monochrome/
@@ -258,7 +353,7 @@ function showHistoryGraph() {
         var user = obj['USER'];
         if ('username' in user) {
             var URL = "https://quotedserver.herokuapp.com/lookup/gethistory";
-            xhttprequest(URL, user['username'], function(xhr) {
+            xhttprequest(URL, user[USER_KEY], function(xhr) {
                 var responseData = JSON.parse(xhr.responseText);
                 
                 if (responseData.length > 0) {
@@ -302,7 +397,7 @@ function disableSelectedDomains() {
                 if (select.options[idx].selected) {
                     var URL = "https://quotedserver.herokuapp.com/lookup/toggledomain/";
                     URL += btoa(select.options[idx].text) + '/';
-                    xhttprequest(URL, user['username'], function(xhr) {
+                    xhttprequest(URL, user[USER_KEY], function(xhr) {
                         sendMessageToContentJS({'task':'signin', 'user':user.username});
                     });
                     
@@ -316,29 +411,13 @@ function disableSelectedDomains() {
     });
 }
 
-function populateDomainSelectField() {
+function requestEnabledDomains() {
     chrome.storage.sync.get("USER", function (obj) {
         var user = obj['USER'];
         if ('username' in user) {
             var URL = "https://quotedserver.herokuapp.com/lookup/getvaliddomains/";
             xhttprequest(URL, user.username, function(xhr) {
-                var valid_domains = JSON.parse(xhr.responseText);
-                var list = document.getElementById("domains");
-                // clear the list
-                while (list.options.length > 0) {
-                    list.remove(0);
-                }
-                
-                // populate with valid domains
-                for (d in valid_domains) {
-                    if (valid_domains[d].length > 1) {
-                        var option = document.createElement("option");
-                        option.text = valid_domains[d];
-                        list.add(option);
-                    }
-                }
-                
-                document.getElementById("removedomains").disabled = true;
+                updateEnabledDomainsUI(JSON.parse(xhr.responseText));
             });
         }
     });
@@ -347,10 +426,96 @@ function populateDomainSelectField() {
 /*
  * Toggle on or off the current domain.
  */
-function toggleCurrentDomain() {
+function toggleCurrentDomainHighlighting() {
     chrome.runtime.sendMessage({task: "toggle"}, function(response) {});
     
     delayPopulate();
+}
+
+function toggleCurrentDomainTrusted() {
+    chrome.tabs.getSelected(null, function(tab) {
+        chrome.storage.sync.get("USER", function (obj) {
+            var user = obj['USER'];
+            if ('username' in user) {
+                var URL = "https://quotedserver.herokuapp.com/lookup/toggletrustedsource/";
+                URL = URL + btoa(domainFromURL(tab.url));
+                
+                xhttprequest(URL, user[USER_KEY], function(xhr) {
+                    updateTrustedSourcesUI(JSON.parse(xhr.responseText));
+                });
+            } else {
+                updateUIForSignedOut();
+            }
+        });
+    });
+}
+
+function toggleCurrentDomainUntrusted() {
+    chrome.tabs.getSelected(null, function(tab) {
+        chrome.storage.sync.get("USER", function (obj) {
+            var user = obj['USER'];
+            if ('username' in user) {
+                var URL = "https://quotedserver.herokuapp.com/lookup/toggleuntrustedsource/";
+                URL = URL + btoa(domainFromURL(tab.url));
+                
+                xhttprequest(URL, user[USER_KEY], function(xhr) {
+                    updateUntrustedSourcesUI(JSON.parse(xhr.responseText));
+                });
+            } else {
+                updateUIForSignedOut();
+            }
+        });
+    });
+}
+
+function removeTrustedDomains() {
+    var select = document.getElementById("trustedsources");
+    var selected = [];
+    
+    chrome.storage.sync.get("USER", function (obj) {
+        var user = obj['USER'];
+        if ('username' in user) {
+            for (var idx = 0; idx < select.length; idx++) {
+                if (select.options[idx].selected) {
+                    var URL = "https://quotedserver.herokuapp.com/lookup/removetrustedsource/";
+                    URL += btoa(select.options[idx].text) + '/';
+                    xhttprequest(URL, user[USER_KEY], function(xhr) {
+                        sendMessageToContentJS({'task':'signin', 'user':user.username});
+                    });
+                    
+                    select.remove(idx);
+                    idx--;
+                }
+            }
+            
+            delayPopulate();
+        }
+    });
+}
+
+function removeUntrustedDomains() {
+    var select = document.getElementById("untrustedsources");
+    var selected = [];
+    
+    chrome.storage.sync.get("USER", function (obj) {
+        var user = obj['USER'];
+        if ('username' in user) {
+            for (var idx = 0; idx < select.length; idx++) {
+                if (select.options[idx].selected) {
+                    var URL = "https://quotedserver.herokuapp.com/lookup/removeuntrustedsource/";
+                    URL += btoa(select.options[idx].text) + '/';
+                    xhttprequest(URL, user[USER_KEY], function(xhr) {
+                        sendMessageToContentJS({'task':'signin', 'user':user.username});
+                    });
+                    
+                    select.remove(idx);
+                    idx--;
+                }
+            }
+            
+            delayPopulate();
+        }
+    });
 }
 
 /*
@@ -358,7 +523,10 @@ function toggleCurrentDomain() {
  */
 function delayPopulate() {
     setTimeout(function() { 
-        populateDomainSelectField();
+        requestEnabledDomains();
+        requestTrustedSources();
+        requestUntrustedSources();
+        enableRemoveButtonsIfNecessary();
     }, 150);
 }
 
@@ -373,16 +541,22 @@ function pageSetup() {
     document.getElementById("signout").onclick = signOut;
     document.getElementById("signup").onclick = signUp;
     document.getElementById("removedomains").onclick = disableSelectedDomains;
-    document.getElementById("togglecurrentdomain").onclick = toggleCurrentDomain;
-    document.getElementById("domains").onchange = enableRemoveButtonIfNecessary;
+    document.getElementById("removetrustedsources").onclick = removeTrustedDomains;
+    document.getElementById("removeuntrustedsources").onclick = removeUntrustedDomains;
+    document.getElementById("togglecurrentdomain").onclick = toggleCurrentDomainHighlighting;
+    document.getElementById("domains").onchange = enableRemoveButtonsIfNecessary;
+    document.getElementById("trustedsources").onchange = enableRemoveButtonsIfNecessary;
+    document.getElementById("untrustedsources").onchange = enableRemoveButtonsIfNecessary;
+    document.getElementById("toggletrustcurrentdomain").onclick = toggleCurrentDomainTrusted;
+    document.getElementById("toggleuntrustcurrentdomain").onclick = toggleCurrentDomainUntrusted;
 
     $('#highlightstate').change(function(event) {
         var state = parseInt($(event.target).val());
-        updateSliderForHighlightingState(state);
+        updateHighlightingStateUI(state);
         chrome.storage.sync.get("USER", function (obj) {
             var user = obj['USER'];
             if ('username' in user) {
-                saveNewHighlightingState(state, user['username']);
+                saveNewHighlightingState(state, user[USER_KEY]);
             }
         });
     });
@@ -390,6 +564,17 @@ function pageSetup() {
     // http://stackoverflow.com/questions/155188/trigger-a-button-click-with-javascript-on-the-enter-key-in-a-text-box
     $("#password,#username").keyup(function(event) {
         if(event.keyCode == 13) $("#signin").click();
+    });
+}
+
+function checkSignedIn() {
+    chrome.storage.sync.get("USER", function (obj) {
+        var user = obj['USER'];
+        if ('username' in user) {
+            updateUIForSignedIn(user[USER_KEY]);
+        } else {
+            updateUIForSignedOut();
+        }
     });
 }
 

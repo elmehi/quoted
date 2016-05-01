@@ -19,10 +19,15 @@ var LOAD_TAG_END = '</span></a>'
 // #############################################################################
 // TAG TO USE ONCE A QUOTE'S INFORMATION HAS BEEN LOADED
 // #############################################################################
-var INFO_TAG = '<span class="tooltip tooltip_top" data_tooltip_top="__SOURCE__">' + 
+var TOP_INFO_TAG = '<span class="tooltip tooltip_top" data_tooltip_top="__SOURCE__">' + 
 '<span class="tooltip tooltip_middle" data_tooltip_middle="__DATE__">' +
 '<span class="tooltip tooltip_bottom" data_tooltip_bottom="&quot;__ARTICLE_TITLE__&quot;">';
-var INFO_TAG_END = '</span></span></span>';
+var TOP_INFO_TAG_END = '</span></span></span>';
+
+var DROPDOWN_ITEM = '<a class="dropdown-item" href="__LINK__" style="__STYLE__">__CONTENT__</a>';
+
+var INFO_TAG = '<div class="dropdown-content">';
+var INFO_TAG_END = '</div>';
 // #############################################################################
 
 // #############################################################################
@@ -50,6 +55,27 @@ function updateBadgeWithCount(count) {
         text = String(count);
     }
     chrome.runtime.sendMessage({task: "badgeUpdate", 'text': text}, function(response) {});
+}
+
+/*
+ * Extract the domain from a URL.
+ */
+function domainFromURL(url) {
+    var domain;
+    if (url.indexOf('://') == -1) {
+        domain = url.split('/')[0];
+    } else {
+        domain = url.split('/')[2];
+    }
+    
+    return domain;
+}
+
+function displayNameFromURL(url) {
+    var domain = domainFromURL(url);
+    var split_domain = domain.split('.');
+    var displayName = split_domain[split_domain.length - 2];
+    return  displayName.charAt(0).toUpperCase() + displayName.slice(1);
 }
 
 /* 
@@ -240,26 +266,59 @@ function reloadQuoteWithJSONResponse(response) {
     $(id_string).attr('target', "_blank");
     $(id_string).contents().each(function (i, el) {
         if ($(el).text().length) {
+            var TOP_INFO_TAG_populated = TOP_INFO_TAG;
             var INFO_TAG_populated = INFO_TAG;
             if ('date' in response && response['date'].length > 1) {
-                INFO_TAG_populated = INFO_TAG_populated.replace('__DATE__', response['date']);
+                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__DATE__', response['date']);
             } else {
-                INFO_TAG_populated = INFO_TAG_populated.replace('__DATE__', "No Source Date...");
+                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__DATE__', "No Source Date...");
             }
             
             if ('name' in response && response['name'].length > 1) {
-                INFO_TAG_populated = INFO_TAG_populated.replace('__SOURCE__', response['name']);
+                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__SOURCE__', response['name']);
             } else {
-                INFO_TAG_populated = INFO_TAG_populated.replace('__SOURCE__', "No Source Name...");
+                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__SOURCE__', "No Source Name...");
             }
             
             if ('title' in response && response['title'].length > 1) {
-                INFO_TAG_populated = INFO_TAG_populated.replace('__ARTICLE_TITLE__', response['title']);
+                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__ARTICLE_TITLE__', response['title']);
             } else {
-                INFO_TAG_populated = INFO_TAG_populated.replace('__ARTICLE_TITLE__', "No Article Title...");
+                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__ARTICLE_TITLE__', "No Article Title...");
             }
             
-            $(el).replaceWith(INFO_TAG_populated + '"' + quote + '"' + INFO_TAG_END);
+            var primary_match = DROPDOWN_ITEM.replace('__LINK__', response['url']);
+            primary_match = primary_match.replace('__STYLE__', '');
+            if (response['name'].length > 1) {
+                primary_match = primary_match.replace('__CONTENT__', response['name']);
+            } else {
+                primary_match = primary_match.replace('__CONTENT__', displayNameFromURL(response['url']));
+            }
+            
+            INFO_TAG_populated += primary_match;
+            
+            var other_articles = response['other_article_titles'];
+            for (var i = 0; i < other_articles.length; i++) {
+                var url = response['other_article_urls'][i];
+                
+                var new_item = DROPDOWN_ITEM.replace('__LINK__', url).replace('__CONTENT__', displayNameFromURL(url));
+                new_item = new_item.replace('__STYLE__', 'background-color: #333333;');
+                
+                INFO_TAG_populated += new_item;
+            }
+            
+            // if ('other_article_urls' in response && response['other_article_urls'].length > 0) {
+            //     var url = response['other_article_urls'][0];
+            //     var domain = domainFromURL(url);
+            //     var split_domain = domain.split('.');
+            //     var displayName = split_domain[split_domain.length - 2];
+            //     displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+            //     
+            //     INFO_TAG_populated = INFO_TAG_populated.replace('__OTHER__', domain);
+            // } else {
+            //     INFO_TAG_populated = INFO_TAG_populated.replace('__OTHER__', "No other sources found.");
+            // }
+            
+            $(el).replaceWith(INFO_TAG_populated + INFO_TAG_END + TOP_INFO_TAG_populated + '"' + quote + '"' + TOP_INFO_TAG_END);
         }
     });
 }
@@ -280,13 +339,14 @@ function unhighlightQuotes() {
 function prepareQuotes(username) {
     $(".quote").mouseover(
         function(e) {
+            console.log('mouse' + this.working);
             if (e.type === "mouseover" && !this.working) {
                 this.working = true;
                 var quote = e.currentTarget.outerText;
                 quote = quote.substring(1, quote.length - 1);
                 
                 var URL = "https://quotedserver.herokuapp.com/lookup/__/results/";
-                URL = URL.replace('__', encodeURIComponent(replaceWordChars(quote)));
+                URL = URL.replace('__', btoa(replaceWordChars(quote)));
                 xhttprequest(URL, username, function(xhr) {
                     var JSON_object = JSON.parse(xhr.responseText);
                     if (!('date' in JSON_object)) {
