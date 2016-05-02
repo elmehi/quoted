@@ -35,7 +35,7 @@
     position: static;
 }
 
-.dropdown-content .dropdown-item:hover {
+.dropdown-item:hover {
     background-color: #f1f1f1;
     color: black;
 }
@@ -44,15 +44,27 @@
     display: block;
 }
 
-.dropdown-content:hover + .tooltip_top:after {
+.dropdown-content:hover + .tooltip_bottom:after {
     display: block;
 }
 
-.dropdown-content:hover + .tooltip_top .tooltip_middle:after {
+.dropdown-content:hover + .tooltip_bottom .tooltip_middle:after {
     display: block;
 }
 
-.dropdown-content:hover + .tooltip_top .tooltip_middle .tooltip_bottom:after {
+.dropdown-content:hover + .tooltip_bottom .tooltip_middle .tooltip_top:after {
+    display: block;
+}
+
+.tooltip_bottom:hover .tooltip_middle:after {
+    display: block;
+}
+
+.tooltip_bottom:hover .tooltip_middle .tooltip_top:after {
+    display: block;
+}
+
+.tooltip_middle:hover .tooltip_top:hover:after {
     display: block;
 }
 

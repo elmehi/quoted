@@ -19,9 +19,9 @@ var LOAD_TAG_END = '</span></a>'
 // #############################################################################
 // TAG TO USE ONCE A QUOTE'S INFORMATION HAS BEEN LOADED
 // #############################################################################
-var TOP_INFO_TAG = '<span class="tooltip tooltip_top" data_tooltip_top="__SOURCE__">' + 
+var TOP_INFO_TAG = '<span class="tooltip tooltip_bottom" data_tooltip_bottom="&quot;__ARTICLE_TITLE__&quot;">' + 
 '<span class="tooltip tooltip_middle" data_tooltip_middle="__DATE__">' +
-'<span class="tooltip tooltip_bottom" data_tooltip_bottom="&quot;__ARTICLE_TITLE__&quot;">';
+'<span class="tooltip tooltip_top" data_tooltip_top="__SOURCE__">';
 var TOP_INFO_TAG_END = '</span></span></span>';
 
 var DROPDOWN_ITEM = '<a class="dropdown-item" href="__LINK__" style="__STYLE__">__CONTENT__</a>';
@@ -55,6 +55,25 @@ function updateBadgeWithCount(count) {
         text = String(count);
     }
     chrome.runtime.sendMessage({task: "badgeUpdate", 'text': text}, function(response) {});
+}
+
+/* 
+ * Escape a string to use HTML codes.
+ * http://stackoverflow.com/questions/24816/escaping-html-strings-with-jquery
+ */
+function escapeHtml(string) {
+    var entityMap = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': '&quot;',
+        "'": '&#39;',
+        "/": '&#x2F;'
+    };
+    
+    return String(string).replace(/[&<>"'\/]/g, function (s) {
+        return entityMap[s];
+    });
 }
 
 /*
@@ -269,19 +288,19 @@ function reloadQuoteWithJSONResponse(response) {
             var TOP_INFO_TAG_populated = TOP_INFO_TAG;
             var INFO_TAG_populated = INFO_TAG;
             if ('date' in response && response['date'].length > 1) {
-                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__DATE__', response['date']);
+                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__DATE__', escapeHtml(response['date']));
             } else {
                 TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__DATE__', "No Source Date...");
             }
             
             if ('name' in response && response['name'].length > 1) {
-                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__SOURCE__', response['name']);
+                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__SOURCE__', escapeHtml(response['name']));
             } else {
-                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__SOURCE__', "No Source Name...");
+                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__SOURCE__', displayNameFromURL(response['url']));
             }
             
             if ('title' in response && response['title'].length > 1) {
-                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__ARTICLE_TITLE__', response['title']);
+                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__ARTICLE_TITLE__', escapeHtml(response['title']));
             } else {
                 TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__ARTICLE_TITLE__', "No Article Title...");
             }
@@ -289,7 +308,7 @@ function reloadQuoteWithJSONResponse(response) {
             var primary_match = DROPDOWN_ITEM.replace('__LINK__', response['url']);
             primary_match = primary_match.replace('__STYLE__', '');
             if (response['name'].length > 1) {
-                primary_match = primary_match.replace('__CONTENT__', response['name']);
+                primary_match = primary_match.replace('__CONTENT__', escapeHtml(response['name']));
             } else {
                 primary_match = primary_match.replace('__CONTENT__', displayNameFromURL(response['url']));
             }
@@ -301,7 +320,7 @@ function reloadQuoteWithJSONResponse(response) {
                 var url = response['other_article_urls'][i];
                 
                 var new_item = DROPDOWN_ITEM.replace('__LINK__', url).replace('__CONTENT__', displayNameFromURL(url));
-                new_item = new_item.replace('__STYLE__', 'background-color: #333333;');
+                new_item = new_item.replace('__STYLE__', 'background-color: #888888;');
                 
                 INFO_TAG_populated += new_item;
             }
@@ -318,7 +337,9 @@ function reloadQuoteWithJSONResponse(response) {
             //     INFO_TAG_populated = INFO_TAG_populated.replace('__OTHER__', "No other sources found.");
             // }
             
-            $(el).replaceWith(INFO_TAG_populated + INFO_TAG_END + TOP_INFO_TAG_populated + '"' + quote + '"' + TOP_INFO_TAG_END);
+            var complete_contents = INFO_TAG_populated + INFO_TAG_END + TOP_INFO_TAG_populated + '"' + quote + '"' + TOP_INFO_TAG_END;
+            
+            $(el).replaceWith(complete_contents);
         }
     });
 }
