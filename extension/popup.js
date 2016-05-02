@@ -299,6 +299,7 @@ function updateUIForSignedIn(username) {
         requestEnabledDomains();
         requestHighlightingState(username);
         requestTrustedSources(username);
+        requestUntrustedSources(username);
     }, 50);
 }
 
