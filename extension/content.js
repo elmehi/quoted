@@ -3,7 +3,7 @@
 * SETTINGS
 *
 *******************************************************************************/
-var CLOBBER_LINKS = true;
+var CLOBBER_LINKS = false;
 var INCLUDE_TITLES = true;
 /******************************************************************************/
 
@@ -12,29 +12,31 @@ var INCLUDE_TITLES = true;
 // TAG TO USE AS A PLACEHOLDER UNTIL A QUOTE'S INFORMATION HAS BEEN LOADED
 // #############################################################################
 var LOAD_TAG = '<a id="ID" class="quote">' +
-'<span class="tooltip tooltip_bottom" data="Loading article...">';
+'<div class="tooltip-container"><div class="tooltip tooltip-normal tooltip_bottom">Loading article...</div></div>' +
+'<span class="quote-text">';
 var LOAD_TAG_END = '</span></a>'
 // #############################################################################
 
 // #############################################################################
 // TAG TO USE ONCE A QUOTE'S INFORMATION HAS BEEN LOADED
 // #############################################################################
-var TOP_INFO_TAG = '<span class="tooltip tooltip-normal tooltip_bottom" data="&quot;__ARTICLE_TITLE__&quot;">' + 
-'<span class="tooltip tooltip-normal tooltip_middle" data="__DATE__">' +
-'<span class="tooltip tooltip-normal tooltip_top" data="__SOURCE__">';
-var TOP_INFO_TAG_END = '</span></span></span>';
+var TOP_INFO_TAG = '<div class="tooltip-container">' +
+'<div class="tooltip tooltip-normal tooltip-date">__DATE__</div>' +
+'<div class="tooltip tooltip-normal tooltip-source">__SOURCE__</div>' + 
+'<div class="tooltip tooltip-normal tooltip-articletitle">&quot;__ARTICLE_TITLE__&quot;</div></div><span class="quote-text">';
+var TOP_INFO_TAG_END = '</span>';
 
-var DROPDOWN_ITEM = '<a class="dropdown dropdown-normal" href="__LINK__" target="_blank">__CONTENT__</a>';
+var DROPDOWN_ITEM = '<a class="dropdown-item dropdown-normal" href="__LINK__" target="_blank">__CONTENT__</a>';
 
-var INFO_TAG = '<div class="dropdown-content">';
+var INFO_TAG = '<div class="dropdown-container">';
 var INFO_TAG_END = '</div>';
 // #############################################################################
 
 // #############################################################################
 // QUOTE VALIDITY CHECKING CONSTANTS
 // #############################################################################
-var MIN_CHARS = 8;
-var MIN_WORDS = 4;
+var MIN_CHARS = 10;
+var MIN_WORDS = 3;
 var MIN_LONGEST_WORD_LENGTH = MIN_CHARS;
 // #############################################################################
 var quote_ids;
@@ -194,6 +196,7 @@ function xhttprequest(URL, username, success) {
     xhr.onreadystatechange = function (e) {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
+                // console.log("RESPONSE TEXT:");
                 // console.log(xhr.responseText);
                 success(xhr);
             } else {
@@ -257,6 +260,17 @@ function extractQuotes() {
     $(selector).contents().filter(function (i, el) {
         return el.nodeType === 3; // THIS MEANS THE CONTENTS ARE TEXT
     }).each(function (i, el) {
+        // Disable overflow clipping 2 levels up
+        // $(el).parents().each(function(i, e) {
+        //     var type = $(e).prop('tagName');
+        //     var classes = $(e).attr('class');
+        //     if (type !== "TABLE") {
+        //         if (!classes || classes.indexOf('nav') == -1) {
+        //             $(e).css('overflow', 'visible');
+        //         }
+        //     }
+        // });
+        
         var replaced = $(el).text().replace(/(["\u201C])([^"\u201D]+)(["\u201D])/g, function($0, $1, $2, $3) {
             var quote = replaceWordChars($2);
             if (quoteValid(quote)) {
@@ -281,6 +295,39 @@ function extractQuotes() {
         }
     });
     
+    $('.tooltip-container').css('display', 'none');
+    
+    /****************************************************************/
+    /* THIS IS CRUCIALLY IMPORTANT TO DELAY/FADING WORKING PROPERLY */
+    $('.quote').on('transitionend', function(e) {
+        var hover = $("#" + this.id).is(':hover');
+        
+        $(this).find('.tooltip-container').each(function(i, el) {
+            if (!hover) {
+                $(el).css('display', 'none');
+            }
+        });
+        
+        $(this).find('.dropdown-container').each(function(i, el) {
+            if (!hover) {
+                $(el).css('display', 'none');
+            }
+        });
+    });
+    
+    $('.quote').mouseover(function(e) {
+        var hover = 0;
+        $('.quote').each(function(i, el) {
+            if ($(el).is(':hover')) {
+            console.log(hover);
+            }
+        });
+        
+        $(this).find('.tooltip-container').css('display', 'block');
+        $(this).find('.dropdown-container').css('display', 'block');
+    });
+    /****************************************************************/
+    
     updateBadgeWithCount(Object.keys(quote_ids).length);
 }
 
@@ -294,56 +341,47 @@ function reloadQuoteWithJSONResponse(response) {
     var block = $(id_string);
     $(id_string).attr('href', response['url']);
     $(id_string).attr('target', "_blank");
+    $(id_string).find('tooltip-container').remove();
     
-    $(id_string).contents().each(function (i, el) {
-        if ($(el).text().length) {
-            var TOP_INFO_TAG_populated = TOP_INFO_TAG;
-            var INFO_TAG_populated = INFO_TAG;
-            if ('date' in response && response['date'].length > 1) {
-                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__DATE__', escapeHtml(response['date']));
-            } else {
-                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__DATE__', "No Source Date...");
-            }
-            
-            if ('name' in response && response['name'].length > 1) {
-                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__SOURCE__', escapeHtml(response['name']));
-            } else {
-                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__SOURCE__', displayNameFromURL(response['url']));
-            }
-            
-            if ('title' in response && response['title'].length > 1) {
-                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__ARTICLE_TITLE__', escapeHtml(response['title']));
-            } else {
-                TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__ARTICLE_TITLE__', "No Article Title...");
-            }
-            
-            // var primary_match = DROPDOWN_ITEM.replace('__LINK__', response['url']);
-            // primary_match = primary_match.replace('__STYLE__', '');
-            // if (response['name'].length > 1) {
-            //     primary_match = primary_match.replace('__CONTENT__', escapeHtml(response['name']));
-            // } else {
-            //     primary_match = primary_match.replace('__CONTENT__', displayNameFromURL(response['url']));
-            // }
-            // 
-            // INFO_TAG_populated += primary_match;
-            
-            var other_articles = response['other_article_titles'];
-            for (var i = 0; i < other_articles.length; i++) {
-                var url = response['other_article_urls'][i];
-                
-                var new_item = DROPDOWN_ITEM.replace('__LINK__', url).replace('__CONTENT__', displayNameFromURL(url));
-                
-                INFO_TAG_populated += new_item;
-            }
-            
-            var complete_contents = INFO_TAG_populated + INFO_TAG_END + TOP_INFO_TAG_populated + '"' + quote + '"' + TOP_INFO_TAG_END;
-            
-            $(el).replaceWith(complete_contents);
-            
-            /* Set all the background colors if needed. */
-            updateUIForTrustedUntrusted();
-        }
-    });
+    var TOP_INFO_TAG_populated = TOP_INFO_TAG;
+    var INFO_TAG_populated = INFO_TAG;
+    if ('date' in response && response['date'].length > 1) {
+        TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__DATE__', escapeHtml(response['date']));
+    } else {
+        TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__DATE__', "No Source Date...");
+    }
+    
+    if ('name' in response && response['name'].length > 1) {
+        TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__SOURCE__', escapeHtml(response['name']));
+    } else {
+        TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__SOURCE__', displayNameFromURL(response['url']));
+    }
+    
+    if ('title' in response && response['title'].length > 1) {
+        TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__ARTICLE_TITLE__', escapeHtml(response['title']));
+    } else {
+        TOP_INFO_TAG_populated = TOP_INFO_TAG_populated.replace('__ARTICLE_TITLE__', "No Article Title...");
+    }
+    
+    var other_articles = response['other_article_titles'];
+    var count = other_articles.length;
+    if (count > 5) {
+        count = 5;
+    }
+    for (var i = 0; i < count; i++) {
+        var url = response['other_article_urls'][i];
+        
+        var new_item = DROPDOWN_ITEM.replace('__LINK__', url).replace('__CONTENT__', displayNameFromURL(url));
+        
+        INFO_TAG_populated += new_item;
+    }
+    
+    var complete_contents = INFO_TAG_populated + INFO_TAG_END + TOP_INFO_TAG_populated + '"' + quote + '"' + TOP_INFO_TAG_END;
+    
+    $(id_string).html(complete_contents);
+    
+    /* Set all the background colors if needed. */
+    updateUIForTrustedUntrusted();
 }
 
 /*
@@ -364,7 +402,8 @@ function prepareQuotes(username) {
         function(e) {
             if (e.type === "mouseover" && !this.working) {
                 this.working = true;
-                var quote = e.currentTarget.outerText;
+                
+                var quote = $(e.currentTarget).find('.quote-text').text();
                 quote = quote.substring(1, quote.length - 1);
                 
                 var URL = "https://quotedserver.herokuapp.com/lookup/__/results/";
@@ -483,16 +522,13 @@ function updateUIForTrustedUntrusted() {
                 suffix = 'untrusted';
             }
             
-            // console.log(urls);
-            console.log(suffix);
-            
             /* Set all the background colors if needed. */
             var quote = $(id_string);
             quote.find('.tooltip').each(function(idx, element) {
                 $(element).removeClass('tooltip-normal tooltip-trusted tooltip-untrusted').addClass('tooltip-' + suffix);
             });
             
-            quote.find('.dropdown').each(function(idx, element) {
+            quote.find('.dropdown-item').each(function(idx, element) {
                 $(this).removeClass('dropdown-normal dropdown-trusted dropdown-untrusted').addClass('dropdown-' + suffix);
             });
         }
@@ -525,13 +561,13 @@ function requestUntrustedSources(username) {
 chrome.runtime.onMessage.addListener(
     function(request, sender, sendResponse) {
         var task = request.task;
-        console.log(request);
         
         if (task === 'toggle') {
             toggleDomain(request.user);
         } else if (task === 'signout') {
             unhighlightQuotes();
         } else if (task === 'usernamerequest' || task === 'signin') {
+            unhighlightQuotes();
             requestTrustedSources(request.user);
         } else if (task === 'nouser') {
             console.log("NO LOGGED IN USER!!");

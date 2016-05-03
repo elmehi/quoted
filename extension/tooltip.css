@@ -1,167 +1,156 @@
 /* Text of quote. */
 .quote {
-  color: #CF5300;
-  text-decoration: none;
-  transition-duration: 0.2s;
-  position: relative;
-  left: 0px;
+    text-decoration: none;
+    position: relative;
 }
 
-/* Change text color on mouseover. */
 .quote:hover {
-  color: #999;
-  text-decoration: none;
-  transition-duration: 0.2s;
+    text-decoration: none !important;
 }
 
-.dropdown-content {
+.quote-text {
+    color: #CF5300;
+    text-decoration: none !important;
+    font-style: normal !important;
+    transition-property: color;
+    transition-duration: 0.2s;
+}
+
+.quote-text:hover {
+    opacity: 1;
+    color: #999;
+    text-decoration: none !important;
+    transition: color .2s;
+}
+
+
+/************************************************
+    TOOLTIP CONTAINER
+    ********************************************/
+.tooltip-container {
+    opacity: 0;
+    position: absolute;
+    left: 0px;
+    bottom: 100%;
+    opacity: 0;
+    background-color: rgba(0, 0, 0, 0);
+    transition-property: opacity;
+    transition-duration: .2s;
+}
+
+.quote:hover .tooltip-container {
+    opacity: 1;
+}
+
+
+/************************************************
+    DROPDOWN CONTAINER
+    ********************************************/
+.dropdown-container {
+    background-color: rgba(0, 0, 0, 0);
     top: 100%;
     left: 0px;
-    display: none;
     position: absolute;
-    background-color: #000000;
-    min-width: 160px;
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-    z-index: 2;
+    z-index: 3;
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: .2s;
 }
 
-.dropdown-normal {
-    font-size: 16px;
-    padding: 2px 6px;
-    color: #FFFFFF;
-    text-decoration: none;
-    display: block;
-    position: static;
-}
-
-.dropdown-normal:hover {
-    background-color: #f1f1f1;
-    color: black;
-}
-
-.dropdown-trusted {
-    padding: 2px 6px;
-    color: #FFFFFF;
-    background-color: #0E752C;
-    text-decoration: none;
-    display: block;
-    position: static;
-}
-
-.dropdown-trusted:hover {
-    background-color: #f1f1f1;
-    color: black;
-}
-
-.dropdown-untrusted {
-    padding: 2px 6px;
-    color: #FFFFFF;
-    background-color: #910C12;
-    text-decoration: none;
-    display: block;
-    position: static;
-}
-
-.dropdown-untrusted:hover {
-    background-color: #f1f1f1;
-    color: black;
+.dropdown-container:hover {
+    transition: none;
+    opacity: 1;
 }
 
 /* Show the dropdown when the quote is mouseover-ed. */
-.quote:hover .dropdown-content {
-    display: block;
+.quote:hover .dropdown-container {
+    opacity: 1;
 }
 
-/* Ensure that the top-top popup stays up when the bottom is mouseover-ed. */
-.dropdown-content:hover + .tooltip_bottom:after {
-    display: block;
+
+/************************************************
+    DROPDOWN ITEMS
+    ********************************************/
+.dropdown-item {
+    margin-right: 1px;
+    padding: 4px 6px;
+    font-size: 14px;
+    top: 6px;
+    text-decoration: none !important;
+    font-style: normal !important;
+    font-stretch: normal !important;
+    position: relative;
+    color: #FFFFFF !important;
 }
 
-/* Ensure that the top-middle popup stays up when the bottom is mouseover-ed. */
-.dropdown-content:hover + .tooltip_bottom .tooltip_middle:after {
-    display: block;
+.dropdown-item:hover {
+    background-color: #f1f1f1;
+    color: #000000 !important;
 }
 
-/* Ensure that the top-bottom popup stays up when the bottom is mouseover-ed. */
-.dropdown-content:hover + .tooltip_bottom .tooltip_middle .tooltip_top:after {
-    display: block;
-}
-
-/* Ensure that the top popup pieces stay up when the bottom pieces of the top
-    popup are mouseover-ed. */
-.tooltip_bottom:hover .tooltip_middle:after {
-    display: block;
-}
-
-/* Ensure that the top popup pieces stay up when the bottom pieces of the top
-    popup are mouseover-ed. */
-.tooltip_bottom:hover .tooltip_middle .tooltip_top:after {
-    display: block;
-}
-
-/* Ensure that the top popup pieces stay up when the bottom pieces of the top
-    popup are mouseover-ed. */
-.tooltip_middle:hover .tooltip_top:hover:after {
-    display: block;
-}
-
-.tooltip:after {
-    left: 0px;
-    background-color: #000000;
-    white-space: nowrap;
-    padding: 2px 6px;
-    position: absolute;
-    display: none;
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-    color: #fff;
-}
-
-.tooltip-normal:after {
+.dropdown-normal {
     background-color: #000000;
 }
 
-.tooltip-trusted:after {
+.dropdown-trusted {
     background-color: #0E752C;
 }
 
-.tooltip-untrusted:after {
+.dropdown-untrusted {
     background-color: #910C12;
 }
 
-/* Tooltip on Top */
-.tooltip_top[data]:after {
-  content: attr(data);
+
+/************************************************
+    TOOLTIP ITEM
+    ********************************************/
+.tooltip {
+    position: relative;
+    margin: 1px;
+    width: 300px;
+    background-color: #000000;
+    padding: 0px 6px;
+    color: #fff;
+    opacity: 1;
+    overflow-x: auto;
+}
+
+.tooltip:hover {
+    text-decoration: none !important;
+    font-style: normal !important;
+    font-weight: normal !important;
+    font-variant: normal !important;
+}
+
+.tooltip-normal {
+    background-color: #000000;
+}
+
+.tooltip-trusted {
+    background-color: #0E752C;
+}
+
+.tooltip-untrusted {
+    background-color: #910C12;
+}
+
+/* Tooltip for name of the source of the quote. */
+.tooltip-source {
   line-height: 22px;
   bottom: calc(100% + 45px);
   font-size: 16px;
 }
 
-/* Tooltip on Top */
-.tooltip_top[data]:hover:after {
-  display: block;
-}
-
-/* Tooltip in Middle */
-.tooltip_middle[data]:after {
-  content: attr(data);
+/* Tooltip for date */
+.tooltip-date {
   line-height: 20px;
   bottom: calc(100% + 25px);
   font-size: 12px;
 }
 
-/* Tooltip in Middle */
-.tooltip_middle[data]:hover:after {
-  display: block;
-}
-
-/* Tooltip on Bottom */
-.tooltip_bottom[data]:after {
-  content: attr(data);
+/* Tooltip on for title of the article the quote came from */
+.tooltip-articletitle {
   line-height: 25px;
   bottom: calc(100%);
   font-size: 17px;
-}
-
-.tooltip_bottom[data]:hover:after {
-  display: block;
 }
