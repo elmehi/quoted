@@ -39,6 +39,9 @@ function sendMessageToContentJS(message, callback) {
  * Helper function to perform XMLHTTPRequests.
  */
 function xhttprequest(URL, username, success) {
+    if (!username) {
+        console.log(URL);
+    }
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function (e) {
         if (xhr.readyState === 4) {
@@ -428,9 +431,21 @@ function requestEnabledDomains() {
  * Toggle on or off the current domain.
  */
 function toggleCurrentDomainHighlighting() {
-    chrome.runtime.sendMessage({task: "toggle"}, function(response) {});
+    chrome.tabs.getSelected(null, function(tab) {
+        chrome.storage.sync.get("USER", function (obj) {
+            var user = obj['USER'];
+            if (USER_KEY in user) {
+                var URL = "https://quotedserver.herokuapp.com/lookup/toggledomain/__/";
+                URL = URL.replace('__', btoa(domainFromURL(tab.url)));
+                console.log(user.username);
+                xhttprequest(URL, user.username, function(xhr) {
+                    chrome.runtime.sendMessage({task: "getUser"}, function(response) {});
+                    delayPopulate();
+                });
+            }
+        });
+    });
     
-    delayPopulate();
 }
 
 function toggleCurrentDomainTrusted() {
@@ -523,12 +538,17 @@ function removeUntrustedDomains() {
  * Refresh the domain select field after a delay.
  */
 function delayPopulate() {
-    setTimeout(function() { 
-        requestEnabledDomains();
-        requestTrustedSources();
-        requestUntrustedSources();
-        enableRemoveButtonsIfNecessary();
-    }, 150);
+    chrome.storage.sync.get("USER", function (obj) {
+        var user = obj['USER'];
+        if ('username' in user) {
+            setTimeout(function() { 
+                requestEnabledDomains();
+                requestTrustedSources(user[USER_KEY]);
+                requestUntrustedSources(user[USER_KEY]);
+                enableRemoveButtonsIfNecessary();
+            }, 150);
+        }
+    });
 }
 
 /* 

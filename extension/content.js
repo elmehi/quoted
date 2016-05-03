@@ -3,7 +3,7 @@
 * SETTINGS
 *
 *******************************************************************************/
-var CLOBBER_LINKS = false;
+var CLOBBER_LINKS = true;
 var INCLUDE_TITLES = true;
 /******************************************************************************/
 
@@ -250,7 +250,7 @@ function extractText() {
 function extractQuotes() {
     quote_ids = {};
     num_quote_ids = 0;
-    var selector = "p, div";
+    var selector = "p, div, span";
     if (INCLUDE_TITLES) {
         selector += ", :header";
     }
@@ -261,15 +261,18 @@ function extractQuotes() {
         return el.nodeType === 3; // THIS MEANS THE CONTENTS ARE TEXT
     }).each(function (i, el) {
         // Disable overflow clipping 2 levels up
-        // $(el).parents().each(function(i, e) {
-        //     var type = $(e).prop('tagName');
-        //     var classes = $(e).attr('class');
-        //     if (type !== "TABLE") {
-        //         if (!classes || classes.indexOf('nav') == -1) {
-        //             $(e).css('overflow', 'visible');
-        //         }
-        //     }
-        // });
+        $(el).parent().each(function(i, e) {
+            var type = $(e).prop('tagName');
+            var classes = $(e).attr('class');
+            if (type !== "TABLE") {
+                $(e).css('overflow', 'visible');
+                if (!classes || classes.indexOf('nav') == -1) {
+                    $(e).parent().each(function(o, x) {
+                        $(x).css('overflow', 'visible');
+                    });
+                }
+            }
+        });
         
         var replaced = $(el).text().replace(/(["\u201C])([^"\u201D]+)(["\u201D])/g, function($0, $1, $2, $3) {
             var quote = replaceWordChars($2);
@@ -390,6 +393,7 @@ function reloadQuoteWithJSONResponse(response) {
 function unhighlightQuotes() {
     $(".tooltip").contents().unwrap();
     $(".quote").contents().unwrap();
+    $(".quote-text").contents().unwrap();
     
     updateBadgeWithCount(-1);
 }
@@ -445,6 +449,7 @@ function toggleDomain(username) {
     var URL = "https://quotedserver.herokuapp.com/lookup/toggledomain/__/";
     URL = URL.replace('__', btoa(currentDomain()));
     xhttprequest(URL, username, function(xhr) {
+        console.log(xhr.responseText);
         requestHighlightingState(username);
     });
 }
@@ -453,6 +458,7 @@ function toggleDomain(username) {
  * Kick everything off by figuring out who the current user is.
  */
 function requestUsername() {
+    console.log('request');
     // expects a response from the background script with task='usernamerequest'
     chrome.runtime.sendMessage({task: "getUser"}, function(response) {});
 }
@@ -561,6 +567,7 @@ function requestUntrustedSources(username) {
 chrome.runtime.onMessage.addListener(
     function(request, sender, sendResponse) {
         var task = request.task;
+        console.log(request);
         
         if (task === 'toggle') {
             toggleDomain(request.user);
@@ -582,5 +589,5 @@ chrome.runtime.onMessage.addListener(
  *   we highlighting just domains on a whitelist?) from heroku
  * - depending on the user's highlighting state, refresh the status of the page
  * ###########################################################################*/
-requestUsername();
+ setTimeout(requestUsername, 500);
 // #############################################################################

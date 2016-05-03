@@ -105,6 +105,7 @@
     TOOLTIP ITEM
     ********************************************/
 .tooltip {
+    text-align: left;
     position: relative;
     margin: 1px;
     width: 300px;
