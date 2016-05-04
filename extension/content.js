@@ -409,6 +409,7 @@ function prepareQuotes(username) {
                 
                 var quote = $(e.currentTarget).find('.quote-text').text();
                 quote = quote.substring(1, quote.length - 1);
+                console.log(quote.split(' ').length);
                 
                 var URL = "https://quotedserver.herokuapp.com/lookup/__/results/";
                 URL = URL.replace('__', btoa(replaceWordChars(quote)));
