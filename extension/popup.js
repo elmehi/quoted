@@ -82,6 +82,14 @@ function signUp() {
     
     var user = document.getElementById('username').value;
     var pass = document.getElementById('password').value;
+    
+    if (user.length < 4) {
+        $('#signedoutmessage').text('Username too short. You can do better.');
+        return;
+    } else if (pass.length < 8) {
+        $('#signedoutmessage').text('Password too short. You can do better!');
+        return;
+    }
     var auth_token = 'a_random_string';
     
     // Start signup request
